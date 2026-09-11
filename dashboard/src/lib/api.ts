@@ -58,6 +58,13 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const listProjects = () => apiFetch<Project[]>("/api/v1/projects");
 
+export const createProject = (name: string) =>
+  apiFetch<Project>("/api/v1/projects", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+
 export const listIssues = (projectId: string, params: IssueListParams = {}) => {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {

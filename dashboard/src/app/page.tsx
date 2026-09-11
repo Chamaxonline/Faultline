@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listProjects } from "@/lib/api";
+import { NewProjectForm } from "./NewProjectForm";
 
 export default async function Home() {
   const projects = await listProjects().catch(() => []);
@@ -8,6 +9,8 @@ export default async function Home() {
     <main className="mx-auto max-w-3xl px-6 py-12">
       <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Faultline</h1>
       <p className="mt-1 text-sm text-zinc-500">Projects</p>
+
+      <NewProjectForm />
 
       {projects.length === 0 && (
         <p className="mt-8 text-sm text-zinc-500">

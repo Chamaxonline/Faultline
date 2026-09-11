@@ -74,6 +74,28 @@ app.MapGet("/api/v1/projects", async (FaultlineDbContext db, CancellationToken c
     .WithName("ListProjects")
     .WithOpenApi();
 
+app.MapPost("/api/v1/projects", async (CreateProjectRequest body, FaultlineDbContext db, CancellationToken ct) =>
+    {
+        if (string.IsNullOrWhiteSpace(body.Name))
+            return Results.BadRequest(new { error = "name is required" });
+
+        // single-org setup for now — every project hangs off the first (only) org
+        var org = await db.Organizations.FirstOrDefaultAsync(ct);
+        if (org is null) return Results.Problem("no organization exists yet", statusCode: 500);
+
+        var slug = Slugify(body.Name);
+        if (await db.Projects.AnyAsync(p => p.OrganizationId == org.Id && p.Slug == slug, ct))
+            return Results.Conflict(new { error = $"a project with slug '{slug}' already exists" });
+
+        var project = new Project { OrganizationId = org.Id, Name = body.Name, Slug = slug };
+        db.Projects.Add(project);
+        await db.SaveChangesAsync(ct);
+
+        return Results.Created($"/api/v1/projects/{project.Id}", new ProjectDto(project.Id, project.Name, project.Slug, project.PublicKey));
+    })
+    .WithName("CreateProject")
+    .WithOpenApi();
+
 app.MapGet("/api/v1/projects/{projectId:guid}/issues", async (
         Guid projectId,
         string? status,
@@ -180,9 +202,13 @@ static async Task SeedDevDataAsync(WebApplication app)
     app.Logger.LogInformation("Seeded dev org 'Bistec' / project 'Demo App' — public key: {PublicKey}", project.PublicKey);
 }
 
+static string Slugify(string name) =>
+    System.Text.RegularExpressions.Regex.Replace(name.Trim().ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
+
 record ProjectDto(Guid Id, string Name, string Slug, string PublicKey);
 record IssueSummaryDto(Guid Id, string Title, string Level, string Status, int Count, DateTimeOffset FirstSeen, DateTimeOffset LastSeen, string? Environment, string? Release);
 record IssueDetailDto(Guid Id, string Title, string? ExceptionType, string Level, string Status, int Count, DateTimeOffset FirstSeen, DateTimeOffset LastSeen, List<EventDto> RecentEvents);
 record EventDto(Guid Id, DateTimeOffset Timestamp, string? Release, string? Environment, string RawPayload);
 record UpdateIssueStatusRequest(string Status);
+record CreateProjectRequest(string Name);
 record PagedResult<T>(List<T> Items, int Total, int Page, int PageSize);
