@@ -1,4 +1,5 @@
 using Faultline.Infrastructure;
+using Faultline.Infrastructure.Alerts;
 using Faultline.Infrastructure.Queue;
 using Faultline.Worker;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,9 @@ builder.Services.AddDbContext<FaultlineDbContext>(opt =>
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
     ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")!));
 builder.Services.AddSingleton<IEventQueue, RedisEventQueue>();
+
+builder.Services.Configure<AlertOptions>(builder.Configuration.GetSection("Alerts"));
+builder.Services.AddHttpClient<IAlertNotifier, TeamsAlertNotifier>();
 
 builder.Services.AddHostedService<EventGroupingWorker>();
 

@@ -45,6 +45,23 @@ services.AddFaultline(opts =>
 app.Services.UseFaultlineUnhandledExceptionCapture();
 ```
 
+## Alerting
+
+Set `Alerts:TeamsWebhookUrl` in `src/Faultline.Worker/appsettings.json` (or an env
+var override) to get a Teams card on every new issue and every regression (an event
+on a previously-resolved issue). Leave it blank to disable — the worker no-ops
+silently. Point it at a Power Automate "When a Teams webhook request is received"
+flow, since Teams retired the legacy Incoming Webhook connector.
+
+## Issue search/filter
+
+`GET /api/v1/projects/{projectId}/issues` supports `q` (title search), `status`,
+`environment`, `release`, `sort` (`lastSeen` | `firstSeen` | `count`), `page`,
+`pageSize` (max 100). The dashboard's project page exposes all of these as a filter
+bar + pagination.
+
 ## MVP scope
-Ingestion + dedupe/grouping + basic dashboard + .NET SDK + Teams alert on new issue.
-Not in v1: perf tracing, uptime checks, log aggregation, non-.NET SDKs.
+Ingestion + dedupe/grouping + search/filter/pagination + Teams alerts + basic
+dashboard + .NET SDK.
+Not yet built: Entra ID auth on the dashboard, source map support, perf tracing,
+uptime checks, log aggregation, non-.NET SDKs, Hetzner deployment.

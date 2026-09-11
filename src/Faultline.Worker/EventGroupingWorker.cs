@@ -2,6 +2,7 @@ using System.Text.Json;
 using Faultline.Domain;
 using Faultline.Domain.Contracts;
 using Faultline.Infrastructure;
+using Faultline.Infrastructure.Alerts;
 using Faultline.Infrastructure.Queue;
 using Microsoft.EntityFrameworkCore;
 
@@ -28,9 +29,13 @@ public class EventGroupingWorker(
 
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<FaultlineDbContext>();
+        var alerts = scope.ServiceProvider.GetRequiredService<IAlertNotifier>();
 
         var issue = await db.Issues
             .FirstOrDefaultAsync(i => i.ProjectId == projectId && i.Fingerprint == fingerprint, ct);
+
+        var isNewIssue = issue is null;
+        var isRegression = false;
 
         if (issue is null)
         {
@@ -55,8 +60,14 @@ public class EventGroupingWorker(
 
             // an event on a resolved issue means the bug is back — reopen it
             if (issue.Status == IssueStatus.Resolved)
+            {
                 issue.Status = IssueStatus.Unresolved;
+                isRegression = true;
+            }
         }
+
+        issue.LastEnvironment = evt.Environment;
+        issue.LastRelease = evt.Release;
 
         db.Events.Add(new Event
         {
@@ -70,5 +81,16 @@ public class EventGroupingWorker(
         });
 
         await db.SaveChangesAsync(ct);
+
+        if (isNewIssue)
+        {
+            var project = await db.Projects.AsNoTracking().FirstAsync(p => p.Id == projectId, ct);
+            await alerts.NotifyNewIssueAsync(project, issue, ct);
+        }
+        else if (isRegression)
+        {
+            var project = await db.Projects.AsNoTracking().FirstAsync(p => p.Id == projectId, ct);
+            await alerts.NotifyRegressionAsync(project, issue, ct);
+        }
     }
 }

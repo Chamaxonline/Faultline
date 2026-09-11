@@ -77,20 +77,50 @@ app.MapGet("/api/v1/projects", async (FaultlineDbContext db, CancellationToken c
 app.MapGet("/api/v1/projects/{projectId:guid}/issues", async (
         Guid projectId,
         string? status,
+        string? q,
+        string? environment,
+        string? release,
+        string? sort,
+        int? page,
+        int? pageSize,
         FaultlineDbContext db,
         CancellationToken ct) =>
     {
+        var pageNumber = page is null or <= 0 ? 1 : page.Value;
+        var size = pageSize is null or <= 0 ? 25 : Math.Min(pageSize.Value, 100);
+
         var query = db.Issues.AsNoTracking().Where(i => i.ProjectId == projectId);
 
-        if (status is not null && Enum.TryParse<IssueStatus>(status, ignoreCase: true, out var parsed))
-            query = query.Where(i => i.Status == parsed);
+        if (status is not null && Enum.TryParse<IssueStatus>(status, ignoreCase: true, out var parsedStatus))
+            query = query.Where(i => i.Status == parsedStatus);
+
+        if (!string.IsNullOrWhiteSpace(environment))
+            query = query.Where(i => i.LastEnvironment == environment);
+
+        if (!string.IsNullOrWhiteSpace(release))
+            query = query.Where(i => i.LastRelease == release);
+
+        if (!string.IsNullOrWhiteSpace(q))
+            query = query.Where(i => EF.Functions.ILike(i.Title, $"%{q}%"));
+
+        query = sort switch
+        {
+            "firstSeen" => query.OrderByDescending(i => i.FirstSeen),
+            "count" => query.OrderByDescending(i => i.Count),
+            _ => query.OrderByDescending(i => i.LastSeen)
+        };
+
+        var total = await query.CountAsync(ct);
 
         var issues = await query
-            .OrderByDescending(i => i.LastSeen)
-            .Select(i => new IssueSummaryDto(i.Id, i.Title, i.Level, i.Status.ToString(), i.Count, i.FirstSeen, i.LastSeen))
+            .Skip((pageNumber - 1) * size)
+            .Take(size)
+            .Select(i => new IssueSummaryDto(
+                i.Id, i.Title, i.Level, i.Status.ToString(), i.Count, i.FirstSeen, i.LastSeen,
+                i.LastEnvironment, i.LastRelease))
             .ToListAsync(ct);
 
-        return Results.Ok(issues);
+        return Results.Ok(new PagedResult<IssueSummaryDto>(issues, total, pageNumber, size));
     })
     .WithName("ListIssues")
     .WithOpenApi();
@@ -151,7 +181,8 @@ static async Task SeedDevDataAsync(WebApplication app)
 }
 
 record ProjectDto(Guid Id, string Name, string Slug, string PublicKey);
-record IssueSummaryDto(Guid Id, string Title, string Level, string Status, int Count, DateTimeOffset FirstSeen, DateTimeOffset LastSeen);
+record IssueSummaryDto(Guid Id, string Title, string Level, string Status, int Count, DateTimeOffset FirstSeen, DateTimeOffset LastSeen, string? Environment, string? Release);
 record IssueDetailDto(Guid Id, string Title, string? ExceptionType, string Level, string Status, int Count, DateTimeOffset FirstSeen, DateTimeOffset LastSeen, List<EventDto> RecentEvents);
 record EventDto(Guid Id, DateTimeOffset Timestamp, string? Release, string? Environment, string RawPayload);
 record UpdateIssueStatusRequest(string Status);
+record PagedResult<T>(List<T> Items, int Total, int Page, int PageSize);

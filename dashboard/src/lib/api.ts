@@ -15,6 +15,25 @@ export type IssueSummary = {
   count: number;
   firstSeen: string;
   lastSeen: string;
+  environment: string | null;
+  release: string | null;
+};
+
+export type PagedResult<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type IssueListParams = {
+  status?: string;
+  q?: string;
+  environment?: string;
+  release?: string;
+  sort?: string;
+  page?: number;
+  pageSize?: number;
 };
 
 export type EventItem = {
@@ -39,8 +58,14 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const listProjects = () => apiFetch<Project[]>("/api/v1/projects");
 
-export const listIssues = (projectId: string, status?: string) =>
-  apiFetch<IssueSummary[]>(`/api/v1/projects/${projectId}/issues${status ? `?status=${status}` : ""}`);
+export const listIssues = (projectId: string, params: IssueListParams = {}) => {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") search.set(key, String(value));
+  }
+  const qs = search.toString();
+  return apiFetch<PagedResult<IssueSummary>>(`/api/v1/projects/${projectId}/issues${qs ? `?${qs}` : ""}`);
+};
 
 export const getIssue = (issueId: string) => apiFetch<IssueDetail>(`/api/v1/issues/${issueId}`);
 
