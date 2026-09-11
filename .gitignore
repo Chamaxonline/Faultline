@@ -1,0 +1,19 @@
+# .NET
+bin/
+obj/
+*.user
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dashboard/.env*.local
+
+# Editor
+.vs/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

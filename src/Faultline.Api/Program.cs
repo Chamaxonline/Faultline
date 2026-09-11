@@ -1,0 +1,157 @@
+using System.Text.Json;
+using Faultline.Domain;
+using Faultline.Domain.Contracts;
+using Faultline.Infrastructure;
+using Faultline.Infrastructure.Queue;
+using Microsoft.EntityFrameworkCore;
+using Serilog;
+using StackExchange.Redis;
+
+const string DashboardCorsPolicy = "DashboardCors";
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration).WriteTo.Console());
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+builder.Services.AddDbContext<FaultlineDbContext>(opt =>
+    opt.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
+
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+    ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")!));
+builder.Services.AddSingleton<IEventQueue, RedisEventQueue>();
+
+builder.Services.AddHealthChecks();
+
+// Dev-only: dashboard runs on localhost:3000, ingestion API on a different port.
+// Production dashboard is served same-origin behind a reverse proxy, so no CORS needed there.
+builder.Services.AddCors(opt => opt.AddPolicy(DashboardCorsPolicy, policy =>
+    policy.WithOrigins("http://localhost:3000").AllowAnyHeader().AllowAnyMethod()));
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+    app.UseCors(DashboardCorsPolicy);
+
+    await SeedDevDataAsync(app);
+}
+
+app.UseHttpsRedirection();
+app.MapHealthChecks("/health");
+
+// Ingestion endpoint. Auth model mirrors Sentry's DSN: the project public key in the
+// URL is the only credential — abuse is contained via per-key rate limiting, not secrecy.
+app.MapPost("/api/v1/{projectKey}/store", async (
+        string projectKey,
+        ErrorEvent evt,
+        FaultlineDbContext db,
+        IEventQueue queue,
+        CancellationToken ct) =>
+    {
+        var project = await db.Projects.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.PublicKey == projectKey, ct);
+
+        if (project is null)
+            return Results.NotFound(new { error = "unknown project key" });
+
+        var raw = JsonSerializer.Serialize(evt);
+        await queue.PublishAsync(project.Id, raw, ct);
+
+        return Results.Accepted();
+    })
+    .WithName("StoreEvent")
+    .WithOpenApi();
+
+app.MapGet("/api/v1/projects", async (FaultlineDbContext db, CancellationToken ct) =>
+        await db.Projects.AsNoTracking()
+            .Select(p => new ProjectDto(p.Id, p.Name, p.Slug, p.PublicKey))
+            .ToListAsync(ct))
+    .WithName("ListProjects")
+    .WithOpenApi();
+
+app.MapGet("/api/v1/projects/{projectId:guid}/issues", async (
+        Guid projectId,
+        string? status,
+        FaultlineDbContext db,
+        CancellationToken ct) =>
+    {
+        var query = db.Issues.AsNoTracking().Where(i => i.ProjectId == projectId);
+
+        if (status is not null && Enum.TryParse<IssueStatus>(status, ignoreCase: true, out var parsed))
+            query = query.Where(i => i.Status == parsed);
+
+        var issues = await query
+            .OrderByDescending(i => i.LastSeen)
+            .Select(i => new IssueSummaryDto(i.Id, i.Title, i.Level, i.Status.ToString(), i.Count, i.FirstSeen, i.LastSeen))
+            .ToListAsync(ct);
+
+        return Results.Ok(issues);
+    })
+    .WithName("ListIssues")
+    .WithOpenApi();
+
+app.MapGet("/api/v1/issues/{issueId:guid}", async (Guid issueId, FaultlineDbContext db, CancellationToken ct) =>
+    {
+        var issue = await db.Issues.AsNoTracking()
+            .Where(i => i.Id == issueId)
+            .Select(i => new IssueDetailDto(
+                i.Id, i.Title, i.ExceptionType, i.Level, i.Status.ToString(), i.Count, i.FirstSeen, i.LastSeen,
+                i.Events.OrderByDescending(e => e.Timestamp).Take(20)
+                    .Select(e => new EventDto(e.Id, e.Timestamp, e.Release, e.Environment, e.RawPayload))
+                    .ToList()))
+            .FirstOrDefaultAsync(ct);
+
+        return issue is null ? Results.NotFound() : Results.Ok(issue);
+    })
+    .WithName("GetIssue")
+    .WithOpenApi();
+
+app.MapPatch("/api/v1/issues/{issueId:guid}/status", async (
+        Guid issueId,
+        UpdateIssueStatusRequest body,
+        FaultlineDbContext db,
+        CancellationToken ct) =>
+    {
+        if (!Enum.TryParse<IssueStatus>(body.Status, ignoreCase: true, out var status))
+            return Results.BadRequest(new { error = "invalid status" });
+
+        var issue = await db.Issues.FirstOrDefaultAsync(i => i.Id == issueId, ct);
+        if (issue is null) return Results.NotFound();
+
+        issue.Status = status;
+        await db.SaveChangesAsync(ct);
+
+        return Results.NoContent();
+    })
+    .WithName("UpdateIssueStatus")
+    .WithOpenApi();
+
+app.Run();
+
+static async Task SeedDevDataAsync(WebApplication app)
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<FaultlineDbContext>();
+    await db.Database.MigrateAsync();
+
+    if (await db.Organizations.AnyAsync()) return;
+
+    var org = new Organization { Name = "Bistec" };
+    var project = new Project { Organization = org, OrganizationId = org.Id, Name = "Demo App", Slug = "demo-app" };
+    db.Organizations.Add(org);
+    db.Projects.Add(project);
+    await db.SaveChangesAsync();
+
+    app.Logger.LogInformation("Seeded dev org 'Bistec' / project 'Demo App' — public key: {PublicKey}", project.PublicKey);
+}
+
+record ProjectDto(Guid Id, string Name, string Slug, string PublicKey);
+record IssueSummaryDto(Guid Id, string Title, string Level, string Status, int Count, DateTimeOffset FirstSeen, DateTimeOffset LastSeen);
+record IssueDetailDto(Guid Id, string Title, string? ExceptionType, string Level, string Status, int Count, DateTimeOffset FirstSeen, DateTimeOffset LastSeen, List<EventDto> RecentEvents);
+record EventDto(Guid Id, DateTimeOffset Timestamp, string? Release, string? Environment, string RawPayload);
+record UpdateIssueStatusRequest(string Status);
