@@ -2,6 +2,8 @@ using System.Text.Json;
 using Faultline.Domain;
 using Faultline.Domain.Contracts;
 using Faultline.Infrastructure;
+using Faultline.Infrastructure.Alerts;
+using Faultline.Infrastructure.Processing;
 using Faultline.Infrastructure.Queue;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -20,26 +22,47 @@ builder.Services.AddDbContext<FaultlineDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
-    ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")!));
+    ConnectionMultiplexer.Connect(RedisConnectionStringHelper.ToOptions(builder.Configuration.GetConnectionString("Redis")!)));
 builder.Services.AddSingleton<IEventQueue, RedisEventQueue>();
 
 builder.Services.AddHealthChecks();
 
-// Dev-only: dashboard runs on localhost:3000, ingestion API on a different port.
-// Production dashboard is served same-origin behind a reverse proxy, so no CORS needed there.
+// Free-tier deployments (e.g. Render's free web service, which has no separate
+// background-worker offering) run the grouping worker in-process instead of as
+// a standalone Faultline.Worker container. Self-hosted docker-compose deployments
+// leave this off (default false) since the Worker container already does the job.
+if (builder.Configuration.GetValue<bool>("RunWorkerInProcess"))
+{
+    builder.Services.Configure<AlertOptions>(builder.Configuration.GetSection("Alerts"));
+    builder.Services.AddHttpClient<IAlertNotifier, TeamsAlertNotifier>();
+    builder.Services.AddHostedService<EventGroupingWorker>();
+}
+
+// Dashboard origin(s) allowed to call this API. Same-origin deployments (dashboard
+// behind Caddy on the same box) don't need this at all, but a split deployment
+// (e.g. dashboard on Vercel, API on Render) does — set Cors:AllowedOrigins.
+// Falls back to localhost:3000 for local dev when unset.
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? ["http://localhost:3000"];
+
 builder.Services.AddCors(opt => opt.AddPolicy(DashboardCorsPolicy, policy =>
-    policy.WithOrigins("http://localhost:3000").AllowAnyHeader().AllowAnyMethod()));
+    policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();
+
+// Must run in every environment, not just Development — a fresh Production
+// database (e.g. a new Neon/Render deployment) starts with no tables at all.
+await MigrateDatabaseAsync(app);
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
-    app.UseCors(DashboardCorsPolicy);
 
     await SeedDevDataAsync(app);
 }
+
+app.UseCors(DashboardCorsPolicy);
 
 app.UseHttpsRedirection();
 app.MapHealthChecks("/health");
@@ -185,21 +208,35 @@ app.MapPatch("/api/v1/issues/{issueId:guid}/status", async (
 
 app.Run();
 
-static async Task SeedDevDataAsync(WebApplication app)
+static async Task MigrateDatabaseAsync(WebApplication app)
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<FaultlineDbContext>();
     await db.Database.MigrateAsync();
 
-    if (await db.Organizations.AnyAsync()) return;
+    // there's no API to create an Organization yet (single-org setup, see the
+    // "no organization exists yet" check in POST /api/v1/projects) — every
+    // environment needs exactly one to exist before any project can be created.
+    if (!await db.Organizations.AnyAsync())
+    {
+        db.Organizations.Add(new Organization { Name = app.Configuration["DefaultOrganizationName"] ?? "Bistec" });
+        await db.SaveChangesAsync();
+    }
+}
 
-    var org = new Organization { Name = "Bistec" };
-    var project = new Project { Organization = org, OrganizationId = org.Id, Name = "Demo App", Slug = "demo-app" };
-    db.Organizations.Add(org);
+static async Task SeedDevDataAsync(WebApplication app)
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<FaultlineDbContext>();
+
+    if (await db.Projects.AnyAsync()) return;
+
+    var org = await db.Organizations.FirstAsync();
+    var project = new Project { OrganizationId = org.Id, Name = "Demo App", Slug = "demo-app" };
     db.Projects.Add(project);
     await db.SaveChangesAsync();
 
-    app.Logger.LogInformation("Seeded dev org 'Bistec' / project 'Demo App' — public key: {PublicKey}", project.PublicKey);
+    app.Logger.LogInformation("Seeded dev project 'Demo App' — public key: {PublicKey}", project.PublicKey);
 }
 
 static string Slugify(string name) =>

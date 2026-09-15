@@ -90,6 +90,22 @@ Already scoped in a previous conversation — waiting on an Entra ID App Registr
 Not done: DNS record creation, `.env` secret provisioning on the box, backup/restore
 drill for Postgres.
 
+### Free-tier path (Vercel + Render + Neon + Upstash)
+
+- [x] Merge the grouping worker into the Api process (`RunWorkerInProcess` config
+      flag) — Render's free tier has no standalone background-worker offering
+- [x] `RedisConnectionStringHelper` accepts a `redis://`/`rediss://` URI (what
+      Upstash gives you) as well as the native options-string format
+- [x] `render.yaml` blueprint + CORS made configurable (`Cors:AllowedOrigins`) for
+      a split dashboard/API deployment — previously CORS only applied in
+      Development, which would've silently broken this
+- [x] Fixed: DB migrations only ran inside dev-only seeding, so a fresh Production
+      database (Neon, or anything else) would have no tables at all
+- [x] Fixed: no way to create an Organization via the API, so a fresh Production
+      deploy could never create its first Project — now auto-created on startup
+      if none exists
+- Full walkthrough in `deploy/README.md`
+
 ## Explicitly out of scope (Sentry has these, Faultline doesn't need them)
 
 Per ADR-0001's "error tracking only" decision — revisit only if a real need shows up:

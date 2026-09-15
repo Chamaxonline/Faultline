@@ -141,11 +141,15 @@ bar + pagination.
 
 ## Deployment
 
-See [deploy/README.md](deploy/README.md) — Terraform for a Hetzner VM, production
-docker-compose + Caddy for TLS, and GitHub Actions CI/CD. The deploy step is
-gated behind repo secrets/variables that aren't set yet, so pushing to `master`
-builds and pushes images to GHCR but doesn't touch any live server until you
-configure those.
+See [deploy/README.md](deploy/README.md) for two paths:
+- **Free tier**: Vercel (dashboard) + Render (Api+worker merged into one process,
+  since Render's free tier has no standalone background-worker option) + Neon
+  (Postgres) + Upstash (Redis) — no credit card needed on any of them, cold starts
+  on the free instances.
+- **Hetzner VM**: Terraform-provisioned, production docker-compose + Caddy for TLS,
+  GitHub Actions CI/CD. The deploy step is gated behind repo secrets/variables
+  that aren't set yet, so pushing to `master` builds and pushes images to GHCR
+  but doesn't touch any live server until you configure those.
 
 ## MVP scope
 Ingestion + dedupe/grouping + search/filter/pagination + Teams alerts + basic

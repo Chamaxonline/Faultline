@@ -1,16 +1,20 @@
 using System.Text.Json;
 using Faultline.Domain;
 using Faultline.Domain.Contracts;
-using Faultline.Infrastructure;
 using Faultline.Infrastructure.Alerts;
 using Faultline.Infrastructure.Queue;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
-namespace Faultline.Worker;
+namespace Faultline.Infrastructure.Processing;
 
 /// <summary>
 /// Consumes raw events off the queue, groups them into Issues by fingerprint,
-/// and persists both the aggregate (Issue) and the raw Event.
+/// and persists both the aggregate (Issue) and the raw Event. Hosted by
+/// Faultline.Worker standalone, or in-process inside Faultline.Api when deployed
+/// as a single free-tier web service that can't run a separate background worker.
 /// </summary>
 public class EventGroupingWorker(
     IEventQueue queue,

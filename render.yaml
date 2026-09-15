@@ -1,0 +1,28 @@
+# Render Blueprint for the free-tier deployment: Api + grouping worker merged into
+# one free Web Service (Render's free tier has no standalone background-worker
+# option). Postgres and Redis are external free managed services (Neon, Upstash) —
+# not defined here, since Render's own free Postgres isn't perpetual.
+# See deploy/README.md for full setup steps.
+services:
+  - type: web
+    name: faultline-api
+    runtime: docker
+    dockerfilePath: ./src/Faultline.Api/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: RunWorkerInProcess
+        value: "true"
+      - key: ConnectionStrings__Postgres
+        sync: false # paste your Neon connection string in the Render dashboard
+      - key: ConnectionStrings__Redis
+        sync: false # paste your Upstash redis://... URI in the Render dashboard
+      - key: Cors__AllowedOrigins__0
+        sync: false # your Vercel dashboard URL, e.g. https://faultline.vercel.app
+      - key: Alerts__TeamsWebhookUrl
+        sync: false
+      - key: Alerts__DashboardBaseUrl
+        sync: false # same value as Cors__AllowedOrigins__0

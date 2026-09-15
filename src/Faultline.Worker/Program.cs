@@ -1,7 +1,7 @@
 using Faultline.Infrastructure;
 using Faultline.Infrastructure.Alerts;
+using Faultline.Infrastructure.Processing;
 using Faultline.Infrastructure.Queue;
-using Faultline.Worker;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using StackExchange.Redis;
@@ -18,7 +18,7 @@ builder.Services.AddDbContext<FaultlineDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
-    ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")!));
+    ConnectionMultiplexer.Connect(RedisConnectionStringHelper.ToOptions(builder.Configuration.GetConnectionString("Redis")!)));
 builder.Services.AddSingleton<IEventQueue, RedisEventQueue>();
 
 builder.Services.Configure<AlertOptions>(builder.Configuration.GetSection("Alerts"));
