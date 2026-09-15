@@ -14,14 +14,14 @@ tags, user context, and a breadcrumb trail that gets attached to whatever error
 fires next. Faultline's SDK currently only does `CaptureExceptionAsync(ex)` with
 no context — every issue looks the same regardless of what led up to it.
 
-- [ ] `FaultlineScope`: settable tags (`Dictionary<string,string>`), user context,
+- [x] `FaultlineScope`: settable tags (`Dictionary<string,string>`), user context,
       "extra" free-form data — ambient (AsyncLocal-based) so it flows through async
       call chains
-- [ ] Breadcrumb trail: manual `AddBreadcrumb(message, category, level)` API, capped
+- [x] Breadcrumb trail: manual `AddBreadcrumb(message, category, level)` API, capped
       ring buffer (last ~50), attached to the event on capture
-- [ ] ASP.NET Core middleware: push a per-request scope (route, method, correlation
+- [x] ASP.NET Core middleware: push a per-request scope (route, method, correlation
       ID) so errors show which request they came from
-- [ ] `ILogger` provider integration: `LogWarning`/`LogError` calls become
+- [x] `ILogger` provider integration: `LogWarning`/`LogError` calls become
       breadcrumbs automatically, not just unhandled exceptions
 
 ## Epic: Envelope wire format (P1)

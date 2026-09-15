@@ -41,8 +41,36 @@ services.AddFaultline(opts =>
     opts.Environment = "production";
 });
 
-// in Program.cs, after building the host:
+// ASP.NET Core apps: adds route/method/correlation-id tags to every error from a request
+app.UseFaultlineScope();
+
+// after building the host:
 app.Services.UseFaultlineUnhandledExceptionCapture();
+```
+
+### Scope & breadcrumbs
+
+Every captured error picks up whatever's on the ambient `FaultlineScope` — tags, user,
+and the last 50 breadcrumbs — so issues show what led up to them, not just the
+exception itself.
+
+```csharp
+FaultlineScope.SetTag("tenant", tenantId);
+FaultlineScope.SetUser(currentUser.Email);
+FaultlineScope.AddBreadcrumb("started checkout", category: "flow");
+
+// scope it to a block (e.g. a background job) instead of the whole request:
+using (FaultlineScope.Push())
+{
+    FaultlineScope.SetTag("job", "nightly-sync");
+    // ...
+}
+```
+
+Wire ordinary `ILogger` calls in as breadcrumbs automatically (Info level and above):
+
+```csharp
+builder.Logging.AddFaultlineBreadcrumbs();
 ```
 
 ## Alerting

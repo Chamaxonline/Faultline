@@ -13,6 +13,7 @@ public class ErrorEvent
     public string? UserContext { get; set; }
     public Dictionary<string, string> Tags { get; set; } = [];
     public DateTimeOffset Timestamp { get; set; } = DateTimeOffset.UtcNow;
+    public List<Breadcrumb> Breadcrumbs { get; set; } = [];
 }
 
 public class StackFrame

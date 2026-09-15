@@ -9,6 +9,13 @@
     <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="10.0.12" />
   </ItemGroup>
 
+  <!-- ASP.NET Core types for FaultlineScopeMiddleware. Consumers get a transitive
+       framework reference; this SDK is meant for ASP.NET Core apps first, and the
+       unhandled-exception hook still works fine for non-web hosts that pull it in. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

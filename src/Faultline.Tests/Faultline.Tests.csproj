@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Faultline.Domain\Faultline.Domain.csproj" />
     <ProjectReference Include="..\Faultline.Infrastructure\Faultline.Infrastructure.csproj" />
+    <ProjectReference Include="..\Faultline.Sdk\Faultline.Sdk.csproj" />
   </ItemGroup>
 
 </Project>

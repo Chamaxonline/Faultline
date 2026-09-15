@@ -16,6 +16,7 @@ public class FaultlineClient(HttpClient httpClient, IOptions<FaultlineOptions> o
     {
         evt.Environment ??= _options.Environment;
         evt.Release ??= _options.Release;
+        MergeScope(evt);
 
         try
         {
@@ -28,6 +29,17 @@ public class FaultlineClient(HttpClient httpClient, IOptions<FaultlineOptions> o
             // reporting failures must never take down the host app
             logger.LogWarning(ex, "Failed to report exception to Faultline");
         }
+    }
+
+    private static void MergeScope(ErrorEvent evt)
+    {
+        var scope = FaultlineScope.Current;
+
+        foreach (var (key, value) in scope.Tags)
+            evt.Tags.TryAdd(key, value);
+
+        evt.UserContext ??= scope.UserContext;
+        evt.Breadcrumbs = [.. scope.Breadcrumbs, .. evt.Breadcrumbs];
     }
 
     private static ErrorEvent ToErrorEvent(Exception exception, string level)
