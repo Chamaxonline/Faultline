@@ -38,4 +38,18 @@ public class FaultlineOptions
 
     /// <summary>Lines of source shown before/after the failing line when the source file is available on disk. 0 disables source context.</summary>
     public int ContextLineCount { get; set; } = 3;
+
+    /// <summary>
+    /// Directory to buffer events in when the ingestion API is unreachable, retried
+    /// on <see cref="OfflineQueueRetryInterval"/>. Null (default) disables buffering —
+    /// a failed send is dropped and counted instead.
+    /// </summary>
+    public string? OfflineQueueDirectory { get; set; }
+
+    public int OfflineQueueMaxFiles { get; set; } = 500;
+
+    public TimeSpan OfflineQueueRetryInterval { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>How often dropped/queued event counts are logged as a summary warning. Requires the generic host (AddHostedService support).</summary>
+    public TimeSpan ClientReportInterval { get; set; } = TimeSpan.FromMinutes(5);
 }

@@ -1,3 +1,4 @@
+using Faultline.Sdk.Reliability;
 using Microsoft.Extensions.DependencyInjection;
 using Polly;
 using Polly.Extensions.Http;
@@ -24,6 +25,11 @@ public static class ServiceCollectionExtensions
                 3, attempt => TimeSpan.FromMilliseconds(200 * Math.Pow(2, attempt))));
 
         services.AddSingleton<FaultlineUnhandledExceptionHook>();
+
+        // no-op if the host never runs the generic host's hosted services (e.g. a
+        // console app that never calls host.RunAsync) — harmless either way
+        services.AddHostedService<FaultlineOfflineQueueRetryService>();
+        services.AddHostedService<FaultlineClientReportService>();
 
         return services;
     }

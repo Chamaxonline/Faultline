@@ -57,10 +57,12 @@ exception's message goes over the wire and into Postgres as-is.
 
 ## Epic: SDK reliability / self-reporting (P2)
 
-- [ ] Client reports: SDK tracks counts of dropped events (queue full, send failed
+- [x] Client reports: SDK tracks counts of dropped events (queue full, send failed
       after retries) and periodically reports them — surfaces silent data loss
-- [ ] Local disk buffering: if the ingestion API is unreachable, queue events to
-      disk and retry on a timer instead of dropping after 3 attempts
+      (logged via ILogger, not sent to the server — see README)
+- [x] Local disk buffering: if the ingestion API is unreachable, queue events to
+      disk and retry on a timer instead of dropping after 3 attempts (opt-in via
+      `OfflineQueueDirectory`)
 
 ## Epic: Auth (P0 — blocked on you)
 

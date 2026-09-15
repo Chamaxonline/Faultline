@@ -103,6 +103,27 @@ if your app spans several projects). When the source file is available on disk
 `ContextLineCount` (default 3) lines before/after the failing line are captured
 too — set it to `0` to disable.
 
+### Reliability
+
+A send that fails (API unreachable, non-2xx) is dropped and counted by default —
+counts are logged as a periodic warning (`ClientReportInterval`, default 5 min) so
+data loss shows up in your own app's logs instead of vanishing silently. To ride
+out short outages instead of dropping, set `OfflineQueueDirectory` — failed events
+buffer to disk (capped at `OfflineQueueMaxFiles`, oldest evicted first) and retry
+on `OfflineQueueRetryInterval` (default 30s):
+
+```csharp
+services.AddFaultline(opts =>
+{
+    // ...
+    opts.OfflineQueueDirectory = Path.Combine(Path.GetTempPath(), "faultline-queue");
+});
+```
+
+Both the retry loop and the report logger run as hosted services — they need the
+generic host running (`app.Run()` / `host.Run()`), same as any ASP.NET Core or
+Worker Service app already does.
+
 ## Alerting
 
 Set `Alerts:TeamsWebhookUrl` in `src/Faultline.Worker/appsettings.json` (or an env

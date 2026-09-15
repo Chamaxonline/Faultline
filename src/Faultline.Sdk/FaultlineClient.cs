@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using Faultline.Domain.Contracts;
+using Faultline.Sdk.Reliability;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -19,17 +20,40 @@ public class FaultlineClient(HttpClient httpClient, IOptions<FaultlineOptions> o
         MergeScope(evt);
         FaultlineScrubber.Scrub(evt, _options);
 
+        if (!await TrySendAsync(evt, ct))
+            HandleSendFailure(evt);
+    }
+
+    /// <summary>Resends an already-scrubbed event (e.g. from the offline queue) without touching scope/scrubbing again.</summary>
+    internal Task<bool> SendRawAsync(ErrorEvent evt, CancellationToken ct) => TrySendAsync(evt, ct);
+
+    private async Task<bool> TrySendAsync(ErrorEvent evt, CancellationToken ct)
+    {
         try
         {
             var response = await httpClient.PostAsJsonAsync($"/api/v1/{_options.ProjectKey}/store", evt, ct);
             if (!response.IsSuccessStatusCode)
                 logger.LogWarning("Faultline ingest returned {StatusCode}", response.StatusCode);
+            return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
             // reporting failures must never take down the host app
-            logger.LogWarning(ex, "Failed to report exception to Faultline");
+            logger.LogWarning(ex, "Failed to report event to Faultline");
+            return false;
         }
+    }
+
+    private void HandleSendFailure(ErrorEvent evt)
+    {
+        if (string.IsNullOrEmpty(_options.OfflineQueueDirectory))
+        {
+            FaultlineClientReport.RecordDrop("send_failed");
+            return;
+        }
+
+        new FaultlineOfflineQueue(_options.OfflineQueueDirectory, _options.OfflineQueueMaxFiles, logger).Enqueue(evt);
+        FaultlineClientReport.RecordDrop("send_failed_queued");
     }
 
     private static void MergeScope(ErrorEvent evt)
