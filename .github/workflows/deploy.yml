@@ -19,13 +19,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Docker image names must be lowercase, but github.repository_owner isn't
+      # necessarily — GitHub Actions expressions have no built-in case conversion,
+      # so do it in a shell step instead.
+      - name: Compute lowercase image prefix
+        id: vars
+        run: echo "prefix=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       - name: Build and push api
         uses: docker/build-push-action@v6
         with:
           context: .
           file: src/Faultline.Api/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/faultline-api:latest
+          tags: ${{ steps.vars.outputs.prefix }}/faultline-api:latest
 
       - name: Build and push worker
         uses: docker/build-push-action@v6
@@ -33,14 +40,14 @@ jobs:
           context: .
           file: src/Faultline.Worker/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/faultline-worker:latest
+          tags: ${{ steps.vars.outputs.prefix }}/faultline-worker:latest
 
       - name: Build and push dashboard
         uses: docker/build-push-action@v6
         with:
           context: dashboard
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/faultline-dashboard:latest
+          tags: ${{ steps.vars.outputs.prefix }}/faultline-dashboard:latest
 
   deploy:
     needs: build-and-push
