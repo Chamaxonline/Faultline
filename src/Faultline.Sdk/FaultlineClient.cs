@@ -17,6 +17,7 @@ public class FaultlineClient(HttpClient httpClient, IOptions<FaultlineOptions> o
         evt.Environment ??= _options.Environment;
         evt.Release ??= _options.Release;
         MergeScope(evt);
+        FaultlineScrubber.Scrub(evt, _options);
 
         try
         {
@@ -37,6 +38,9 @@ public class FaultlineClient(HttpClient httpClient, IOptions<FaultlineOptions> o
 
         foreach (var (key, value) in scope.Tags)
             evt.Tags.TryAdd(key, value);
+
+        foreach (var (key, value) in scope.Extra)
+            evt.Extra.TryAdd(key, value);
 
         evt.UserContext ??= scope.UserContext;
         evt.Breadcrumbs = [.. scope.Breadcrumbs, .. evt.Breadcrumbs];

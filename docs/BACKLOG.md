@@ -41,11 +41,11 @@ Sentry SDKs scrub sensitive fields **before** the event leaves the process. Faul
 has none of this today — anything an app puts in `UserContext`, tags, or a captured
 exception's message goes over the wire and into Postgres as-is.
 
-- [ ] Default scrub list: fields named `password`, `token`, `authorization`,
+- [x] Default scrub list: fields named `password`, `token`, `authorization`,
       `connectionstring`, `secret`, `apikey` (case-insensitive) get replaced with
       `[Filtered]` before serialization
-- [ ] Configurable scrub rules (regex or field-name list) via `FaultlineOptions`
-- [ ] Document that the SDK never captures raw HTTP request/response bodies by
+- [x] Configurable scrub rules (regex or field-name list) via `FaultlineOptions`
+- [x] Document that the SDK never captures raw HTTP request/response bodies by
       default (opt-in only)
 
 ## Epic: Stack trace quality (P1)

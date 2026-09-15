@@ -73,6 +73,27 @@ Wire ordinary `ILogger` calls in as breadcrumbs automatically (Info level and ab
 builder.Logging.AddFaultlineBreadcrumbs();
 ```
 
+### Data scrubbing
+
+Every event is scrubbed **before** it leaves the process — this isn't a dashboard
+display filter, the data is never sent. Tag/extra keys matching
+`opts.ScrubFieldNames` (defaults: `password`, `token`, `authorization`,
+`connectionstring`, `secret`, `apikey`) get their value replaced with
+`[Filtered]`. Add your own regex patterns to catch anything in free text
+(message, stack trace, user context, breadcrumbs):
+
+```csharp
+services.AddFaultline(opts =>
+{
+    // ...
+    opts.ScrubFieldNames.Add("ssn");
+    opts.ScrubPatterns.Add(@"\b\d{16}\b"); // card numbers
+});
+```
+
+The SDK never captures raw HTTP request/response bodies on its own — only what
+you explicitly put in tags, extra, breadcrumbs, or the exception itself.
+
 ## Alerting
 
 Set `Alerts:TeamsWebhookUrl` in `src/Faultline.Worker/appsettings.json` (or an env

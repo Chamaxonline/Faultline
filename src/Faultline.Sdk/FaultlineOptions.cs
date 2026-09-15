@@ -10,4 +10,21 @@ public class FaultlineOptions
 
     public string Environment { get; set; } = "production";
     public string? Release { get; set; }
+
+    /// <summary>
+    /// Tag/extra keys scrubbed before an event leaves the process (case-insensitive
+    /// substring match — "authToken" matches "token"). Values are replaced with
+    /// "[Filtered]", never sent. Add to this list rather than replacing it, unless
+    /// you specifically want to allow one of the defaults through.
+    /// </summary>
+    public List<string> ScrubFieldNames { get; set; } =
+        ["password", "token", "authorization", "connectionstring", "secret", "apikey"];
+
+    /// <summary>
+    /// Regex patterns run against free-text fields (message, stack trace, user
+    /// context, breadcrumb messages) — any match is replaced with "[Filtered]".
+    /// Empty by default; add patterns for anything your app might log verbatim
+    /// (card numbers, internal tokens, etc.).
+    /// </summary>
+    public List<string> ScrubPatterns { get; set; } = [];
 }

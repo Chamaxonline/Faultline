@@ -12,6 +12,7 @@ public class ErrorEvent
     public string? Environment { get; set; }
     public string? UserContext { get; set; }
     public Dictionary<string, string> Tags { get; set; } = [];
+    public Dictionary<string, string> Extra { get; set; } = [];
     public DateTimeOffset Timestamp { get; set; } = DateTimeOffset.UtcNow;
     public List<Breadcrumb> Breadcrumbs { get; set; } = [];
 }
