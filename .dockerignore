@@ -1,0 +1,5 @@
+**/bin
+**/obj
+dashboard/node_modules
+dashboard/.next
+.git

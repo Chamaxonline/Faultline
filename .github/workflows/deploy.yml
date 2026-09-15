@@ -1,0 +1,61 @@
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push api
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/Faultline.Api/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/faultline-api:latest
+
+      - name: Build and push worker
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/Faultline.Worker/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/faultline-worker:latest
+
+      - name: Build and push dashboard
+        uses: docker/build-push-action@v6
+        with:
+          context: dashboard
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/faultline-dashboard:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    # requires DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY secrets — see deploy/README.md.
+    # Skips cleanly (rather than failing) until those are configured.
+    if: vars.DEPLOY_ENABLED == 'true'
+    steps:
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /opt/faultline
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d

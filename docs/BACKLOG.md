@@ -24,16 +24,16 @@ no context — every issue looks the same regardless of what led up to it.
 - [x] `ILogger` provider integration: `LogWarning`/`LogError` calls become
       breadcrumbs automatically, not just unhandled exceptions
 
-## Epic: Envelope wire format (P1)
+## Epic: Envelope wire format — reconsidered, deferred
 
-Right now the SDK POSTs one raw JSON event per call. Sentry batches
-event + breadcrumbs + context into a single **envelope** (newline-delimited JSON
-items) per send — fewer round trips, and a natural place to add attachments later.
-
-- [ ] Define an envelope format: header line + one line per item (event, breadcrumbs)
-- [ ] SDK buffers breadcrumbs/context and sends one envelope per captured error
-- [ ] Api ingestion endpoint accepts envelopes (keep the old single-event shape
-      working during migration)
+Sentry's envelope batches event + breadcrumbs + context into one send because its
+SDKs emit many small standalone telemetry items (sessions, standalone breadcrumbs,
+attachments). Faultline's `ErrorEvent` already carries breadcrumbs/tags/extra
+inline in one JSON POST per captured error — there's no second item type to batch
+with it yet, and attachments/sessions are explicitly out of scope (see below). A
+real envelope format would add wire-protocol complexity and an Api migration path
+for no current benefit. Revisit only if something genuinely needs multi-item
+batching (e.g. attachments, if that scope ever changes).
 
 ## Epic: Data scrubbing (P0 — security-relevant)
 
@@ -75,9 +75,20 @@ Already scoped in a previous conversation — waiting on an Entra ID App Registr
 
 ## Epic: Deployment (P1)
 
-- [ ] Terraform for the Hetzner VM (per ADR-0001 cost estimate: 2x CPX31)
-- [ ] Production docker-compose (or k3s manifests) + Caddy/Traefik for TLS
-- [ ] GitHub Actions: build + push images, deploy on tag
+- [x] Dockerfiles for Api, Worker, dashboard (all build-tested locally, Api image
+      smoke-tested — boots and answers `/health`)
+- [x] Terraform for the Hetzner VM — single CPX31 running the whole stack via
+      compose (see `deploy/terraform/`; not `terraform apply`'d — needs a real
+      Hetzner token and your SSH key, see `deploy/README.md`)
+- [x] Production docker-compose (`docker-compose.prod.yml`) + Caddy for TLS
+      (`Caddyfile`)
+- [x] GitHub Actions: `ci.yml` builds+tests on every push/PR; `deploy.yml` builds
+      + pushes images to GHCR on push to master, then SSH-deploys — gated behind
+      a `DEPLOY_ENABLED` repo variable so it no-ops until `DEPLOY_HOST`/`DEPLOY_USER`/
+      `DEPLOY_SSH_KEY` secrets exist (see `deploy/README.md`)
+
+Not done: DNS record creation, `.env` secret provisioning on the box, backup/restore
+drill for Postgres.
 
 ## Explicitly out of scope (Sentry has these, Faultline doesn't need them)
 

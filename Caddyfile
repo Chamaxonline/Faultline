@@ -1,0 +1,17 @@
+{$FAULTLINE_DOMAIN} {
+	# ingestion + dashboard read/management API
+	handle /api/* {
+		reverse_proxy api:8080
+	}
+	handle /health {
+		reverse_proxy api:8080
+	}
+	handle /swagger/* {
+		reverse_proxy api:8080
+	}
+
+	# everything else goes to the dashboard
+	handle {
+		reverse_proxy dashboard:3000
+	}
+}

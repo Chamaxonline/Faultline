@@ -139,6 +139,14 @@ flow, since Teams retired the legacy Incoming Webhook connector.
 `pageSize` (max 100). The dashboard's project page exposes all of these as a filter
 bar + pagination.
 
+## Deployment
+
+See [deploy/README.md](deploy/README.md) — Terraform for a Hetzner VM, production
+docker-compose + Caddy for TLS, and GitHub Actions CI/CD. The deploy step is
+gated behind repo secrets/variables that aren't set yet, so pushing to `master`
+builds and pushes images to GHCR but doesn't touch any live server until you
+configure those.
+
 ## MVP scope
 Ingestion + dedupe/grouping + search/filter/pagination + Teams alerts + basic
 dashboard + .NET SDK.
