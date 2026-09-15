@@ -46,15 +46,10 @@ public class FaultlineClient(HttpClient httpClient, IOptions<FaultlineOptions> o
         evt.Breadcrumbs = [.. scope.Breadcrumbs, .. evt.Breadcrumbs];
     }
 
-    private static ErrorEvent ToErrorEvent(Exception exception, string level)
+    private ErrorEvent ToErrorEvent(Exception exception, string level)
     {
         var trace = new System.Diagnostics.StackTrace(exception, fNeedFileInfo: true);
-        var frames = trace.GetFrames()?.Select(f => new StackFrame
-        {
-            Function = f.GetMethod()?.Name,
-            File = f.GetFileName(),
-            Line = f.GetFileLineNumber() is var line && line > 0 ? line : null
-        }).ToList() ?? [];
+        var frames = trace.GetFrames()?.Select(BuildFrame).ToList() ?? [];
 
         return new ErrorEvent
         {
@@ -64,5 +59,47 @@ public class FaultlineClient(HttpClient httpClient, IOptions<FaultlineOptions> o
             Frames = frames,
             Level = level
         };
+    }
+
+    private StackFrame BuildFrame(System.Diagnostics.StackFrame f)
+    {
+        var method = f.GetMethod();
+        var assemblyName = method?.DeclaringType?.Assembly.GetName().Name;
+        var file = f.GetFileName();
+        var line = f.GetFileLineNumber() is var l && l > 0 ? l : (int?)null;
+
+        var frame = new StackFrame
+        {
+            Function = method?.Name,
+            File = file,
+            Line = line,
+            InApp = assemblyName is not null &&
+                    _options.InAppAssemblyPrefixes.Any(prefix =>
+                        prefix.Length > 0 && assemblyName.StartsWith(prefix, StringComparison.Ordinal))
+        };
+
+        if (line is not null && file is not null && _options.ContextLineCount > 0)
+            AttachContextLines(frame, file, line.Value);
+
+        return frame;
+    }
+
+    private void AttachContextLines(StackFrame frame, string file, int line)
+    {
+        try
+        {
+            if (!File.Exists(file)) return;
+
+            var allLines = File.ReadAllLines(file);
+            var start = Math.Max(0, line - 1 - _options.ContextLineCount);
+            var end = Math.Min(allLines.Length - 1, line - 1 + _options.ContextLineCount);
+
+            frame.ContextLines = allLines[start..(end + 1)].ToList();
+            frame.ContextStartLine = start + 1;
+        }
+        catch
+        {
+            // source not available at runtime (typical for published binaries) — frame stays without context
+        }
     }
 }

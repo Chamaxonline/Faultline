@@ -50,9 +50,9 @@ exception's message goes over the wire and into Postgres as-is.
 
 ## Epic: Stack trace quality (P1)
 
-- [ ] Mark frames as in-app vs library (namespace prefix match against the app's
+- [x] Mark frames as in-app vs library (namespace prefix match against the app's
       own assembly names) — dashboard can collapse/dim library frames
-- [ ] Source context: a few lines around the failing line, read from PDB sequence
+- [x] Source context: a few lines around the failing line, read from PDB sequence
       points when available (falls back gracefully without them)
 
 ## Epic: SDK reliability / self-reporting (P2)

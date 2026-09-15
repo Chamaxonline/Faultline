@@ -27,4 +27,15 @@ public class FaultlineOptions
     /// (card numbers, internal tokens, etc.).
     /// </summary>
     public List<string> ScrubPatterns { get; set; } = [];
+
+    /// <summary>
+    /// Assembly name prefixes considered "your app" for the in-app/library frame
+    /// split in stack traces. Defaults to the entry assembly's name — add your
+    /// other project assemblies (e.g. a shared "Acme.Core") if you have more than one.
+    /// </summary>
+    public List<string> InAppAssemblyPrefixes { get; set; } =
+        [System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name ?? string.Empty];
+
+    /// <summary>Lines of source shown before/after the failing line when the source file is available on disk. 0 disables source context.</summary>
+    public int ContextLineCount { get; set; } = 3;
 }

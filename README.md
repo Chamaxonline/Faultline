@@ -94,6 +94,15 @@ services.AddFaultline(opts =>
 The SDK never captures raw HTTP request/response bodies on its own — only what
 you explicitly put in tags, extra, breadcrumbs, or the exception itself.
 
+### Stack trace quality
+
+Frames are marked in-app vs library by matching the declaring type's assembly
+against `opts.InAppAssemblyPrefixes` (defaults to your entry assembly — add more
+if your app spans several projects). When the source file is available on disk
+(true in dev, and on any deployment where source ships alongside binaries),
+`ContextLineCount` (default 3) lines before/after the failing line are captured
+too — set it to `0` to disable.
+
 ## Alerting
 
 Set `Alerts:TeamsWebhookUrl` in `src/Faultline.Worker/appsettings.json` (or an env

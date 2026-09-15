@@ -22,4 +22,13 @@ public class StackFrame
     public string? Function { get; set; }
     public string? File { get; set; }
     public int? Line { get; set; }
+
+    /// <summary>True if this frame belongs to the app's own code rather than a framework/library.</summary>
+    public bool InApp { get; set; }
+
+    /// <summary>Source lines surrounding <see cref="Line"/> (best-effort — only available if the source file is on disk).</summary>
+    public List<string>? ContextLines { get; set; }
+
+    /// <summary>Line number of the first entry in <see cref="ContextLines"/>.</summary>
+    public int? ContextStartLine { get; set; }
 }
