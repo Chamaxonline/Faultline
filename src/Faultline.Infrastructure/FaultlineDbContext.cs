@@ -33,6 +33,11 @@ public class FaultlineDbContext(DbContextOptions<FaultlineDbContext> options) : 
             e.HasOne(i => i.Project)
                 .WithMany(p => p.Issues)
                 .HasForeignKey(i => i.ProjectId);
+            // deleting a user unassigns their issues rather than cascading into issue deletion
+            e.HasOne(i => i.AssignedToUser)
+                .WithMany()
+                .HasForeignKey(i => i.AssignedToUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Event>(e =>

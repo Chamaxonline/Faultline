@@ -176,11 +176,19 @@ against data that already exists, not new capture work.
       Tags live in `RawPayload` so this parses JSON in memory; documented as a
       "revisit if it's ever slow at scale" tradeoff, not a proper aggregate table
 
-### Story 5: Assignee (P1 — builds on the Users epic already done)
-- [ ] `Issue.AssignedToUserId` (nullable FK to `User`)
-- [ ] `PATCH /api/v1/issues/{id}/assign`, dashboard dropdown using the existing
-      Users list
-- [ ] "Assigned to me" filter on the issue list page
+### Story 5: Assignee (P1 — builds on the Users epic already done) — done
+- [x] `Issue.AssignedToUserId` (nullable FK to `User`, `SetNull` on delete)
+- [x] `PATCH /api/v1/issues/{id}/assign`, dashboard dropdown (`AssigneeSelect`)
+      using the existing Users list — found and fixed an access-control gap
+      along the way: `GET /api/v1/users` was `AdminOnly` at the route-group
+      level, which blocked Members from populating the assignee picker; moved
+      `AdminOnly` down to just the `POST`/`DELETE` endpoints, `GET` is now any
+      authenticated user
+- [x] "Assigned to me" filter on the issue list page (checkbox → `assignedTo=me`
+      → resolved to the caller's own id from the session cookie server-side)
+- [x] Verified end-to-end: migration applied, assign/unassign/filter all
+      confirmed via API, both dashboard pages (`/issues/[id]`,
+      `/projects/[id]`) render the new UI with no server errors
 
 ### Story 6: Richer resolve/ignore (P2)
 - [ ] "Ignore until N more occurrences" / "until a date" instead of today's

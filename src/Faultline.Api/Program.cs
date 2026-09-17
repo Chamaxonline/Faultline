@@ -129,7 +129,7 @@ app.MapPost("/api/v1/{projectKey}/store", async (
     .AllowAnonymous();
 
 app.MapGroup("/api/v1/auth").MapAuthEndpoints();
-app.MapGroup("/api/v1/users").MapUserEndpoints().RequireAuthorization("AdminOnly");
+app.MapGroup("/api/v1/users").MapUserEndpoints();
 
 app.MapGet("/api/v1/projects", async (FaultlineDbContext db, CancellationToken ct) =>
         await db.Projects.AsNoTracking()
@@ -169,6 +169,7 @@ app.MapGet("/api/v1/projects/{projectId:guid}/issues", async (
         string? environment,
         string? release,
         string? sort,
+        Guid? assignedTo,
         int? page,
         int? pageSize,
         FaultlineDbContext db,
@@ -191,6 +192,9 @@ app.MapGet("/api/v1/projects/{projectId:guid}/issues", async (
         if (!string.IsNullOrWhiteSpace(q))
             query = query.Where(i => EF.Functions.ILike(i.Title, $"%{q}%"));
 
+        if (assignedTo is not null)
+            query = query.Where(i => i.AssignedToUserId == assignedTo);
+
         query = sort switch
         {
             "firstSeen" => query.OrderByDescending(i => i.FirstSeen),
@@ -205,7 +209,7 @@ app.MapGet("/api/v1/projects/{projectId:guid}/issues", async (
             .Take(size)
             .Select(i => new IssueSummaryDto(
                 i.Id, i.Title, i.Level, i.Status.ToString(), i.Count, i.FirstSeen, i.LastSeen,
-                i.LastEnvironment, i.LastRelease))
+                i.LastEnvironment, i.LastRelease, i.AssignedToUserId))
             .ToListAsync(ct);
 
         return Results.Ok(new PagedResult<IssueSummaryDto>(issues, total, pageNumber, size));
@@ -220,6 +224,7 @@ app.MapGet("/api/v1/issues/{issueId:guid}", async (Guid issueId, FaultlineDbCont
             .Where(i => i.Id == issueId)
             .Select(i => new IssueDetailDto(
                 i.Id, i.Title, i.ExceptionType, i.Level, i.Status.ToString(), i.Count, i.FirstSeen, i.LastSeen,
+                i.AssignedToUserId,
                 i.Events.OrderByDescending(e => e.Timestamp).Take(20)
                     .Select(e => new EventDto(e.Id, e.Timestamp, e.Release, e.Environment, e.RawPayload))
                     .ToList()))
@@ -228,6 +233,27 @@ app.MapGet("/api/v1/issues/{issueId:guid}", async (Guid issueId, FaultlineDbCont
         return issue is null ? Results.NotFound() : Results.Ok(issue);
     })
     .WithName("GetIssue")
+    .WithOpenApi()
+    .RequireAuthorization();
+
+app.MapPatch("/api/v1/issues/{issueId:guid}/assign", async (
+        Guid issueId,
+        AssignIssueRequest body,
+        FaultlineDbContext db,
+        CancellationToken ct) =>
+    {
+        var issue = await db.Issues.FirstOrDefaultAsync(i => i.Id == issueId, ct);
+        if (issue is null) return Results.NotFound();
+
+        if (body.UserId is not null && !await db.Users.AnyAsync(u => u.Id == body.UserId, ct))
+            return Results.BadRequest(new { error = "user not found" });
+
+        issue.AssignedToUserId = body.UserId;
+        await db.SaveChangesAsync(ct);
+
+        return Results.NoContent();
+    })
+    .WithName("AssignIssue")
     .WithOpenApi()
     .RequireAuthorization();
 
@@ -414,10 +440,11 @@ static string Slugify(string name) =>
     System.Text.RegularExpressions.Regex.Replace(name.Trim().ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
 
 record ProjectDto(Guid Id, string Name, string Slug, string PublicKey);
-record IssueSummaryDto(Guid Id, string Title, string Level, string Status, int Count, DateTimeOffset FirstSeen, DateTimeOffset LastSeen, string? Environment, string? Release);
-record IssueDetailDto(Guid Id, string Title, string? ExceptionType, string Level, string Status, int Count, DateTimeOffset FirstSeen, DateTimeOffset LastSeen, List<EventDto> RecentEvents);
+record IssueSummaryDto(Guid Id, string Title, string Level, string Status, int Count, DateTimeOffset FirstSeen, DateTimeOffset LastSeen, string? Environment, string? Release, Guid? AssignedToUserId);
+record IssueDetailDto(Guid Id, string Title, string? ExceptionType, string Level, string Status, int Count, DateTimeOffset FirstSeen, DateTimeOffset LastSeen, Guid? AssignedToUserId, List<EventDto> RecentEvents);
 record EventDto(Guid Id, DateTimeOffset Timestamp, string? Release, string? Environment, string RawPayload);
 record UpdateIssueStatusRequest(string Status);
+record AssignIssueRequest(Guid? UserId);
 record CreateProjectRequest(string Name);
 record PagedResult<T>(List<T> Items, int Total, int Page, int PageSize);
 record TimelinePointDto(DateTime Date, int Count);

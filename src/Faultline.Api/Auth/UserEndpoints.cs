@@ -9,13 +9,16 @@ public static class UserEndpoints
 {
     public static RouteGroupBuilder MapUserEndpoints(this RouteGroupBuilder group)
     {
+        // Any authenticated user can list users (needed to pick an issue assignee) —
+        // only creating/removing accounts is admin-only, see .RequireAuthorization("AdminOnly") below.
         group.MapGet("/", async (FaultlineDbContext db, CancellationToken ct) =>
                 await db.Users.AsNoTracking()
                     .OrderBy(u => u.CreatedAt)
                     .Select(u => new UserDto(u.Id, u.Email, u.Name, u.Role.ToString()))
                     .ToListAsync(ct))
             .WithName("ListUsers")
-            .WithOpenApi();
+            .WithOpenApi()
+            .RequireAuthorization();
 
         group.MapPost("/", async (
                 CreateUserRequest body,
@@ -45,7 +48,8 @@ public static class UserEndpoints
                 return Results.Created($"/api/v1/users/{user.Id}", new UserDto(user.Id, user.Email, user.Name, user.Role.ToString()));
             })
             .WithName("CreateUser")
-            .WithOpenApi();
+            .WithOpenApi()
+            .RequireAuthorization("AdminOnly");
 
         group.MapDelete("/{userId:guid}", async (Guid userId, HttpContext ctx, FaultlineDbContext db, CancellationToken ct) =>
             {
@@ -69,7 +73,8 @@ public static class UserEndpoints
                 return Results.NoContent();
             })
             .WithName("DeleteUser")
-            .WithOpenApi();
+            .WithOpenApi()
+            .RequireAuthorization("AdminOnly");
 
         return group;
     }

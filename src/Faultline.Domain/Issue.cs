@@ -24,6 +24,9 @@ public class Issue
     public string? LastEnvironment { get; set; }
     public string? LastRelease { get; set; }
 
+    public Guid? AssignedToUserId { get; set; }
+
     public Project Project { get; set; } = default!;
+    public User? AssignedToUser { get; set; }
     public List<Event> Events { get; set; } = [];
 }

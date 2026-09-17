@@ -17,6 +17,7 @@ export type IssueSummary = {
   lastSeen: string;
   environment: string | null;
   release: string | null;
+  assignedToUserId: string | null;
 };
 
 export type PagedResult<T> = {
@@ -32,6 +33,7 @@ export type IssueListParams = {
   environment?: string;
   release?: string;
   sort?: string;
+  assignedTo?: string;
   page?: number;
   pageSize?: number;
 };
@@ -122,6 +124,13 @@ export const updateIssueStatus = (issueId: string, status: string, token: string
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),
+  });
+
+export const assignIssue = (issueId: string, userId: string | null, token: string) =>
+  apiFetch<void>(`/api/v1/issues/${issueId}/assign`, token, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
   });
 
 export const listUsers = (token: string) => apiFetch<User[]>("/api/v1/users", token);

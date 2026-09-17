@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { listIssues } from "@/lib/api";
-import { SESSION_COOKIE_NAME } from "@/lib/session";
+import { SESSION_COOKIE_NAME, decodeToken } from "@/lib/session";
 
 const levelColor: Record<string, string> = {
   fatal: "bg-red-600",
@@ -25,16 +25,21 @@ export default async function ProjectIssues({
 
   const page = Number(sp.page ?? "1") || 1;
   const pageSize = 25;
+  const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
+  const caller = token ? decodeToken(token) : null;
+  const assignedToMe = sp.assignedTo === "me";
+
   const filters = {
     status: sp.status ?? "",
     q: sp.q ?? "",
     environment: sp.environment ?? "",
     release: sp.release ?? "",
     sort: sp.sort ?? "lastSeen",
+    assignedTo: sp.assignedTo ?? "",
   };
 
-  const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
-  const result = await listIssues(projectId, { ...filters, page, pageSize }, token).catch(() => ({
+  const apiFilters = { ...filters, assignedTo: assignedToMe ? caller?.sub : filters.assignedTo || undefined };
+  const result = await listIssues(projectId, { ...apiFilters, page, pageSize }, token).catch(() => ({
     items: [],
     total: 0,
     page: 1,
@@ -95,6 +100,12 @@ export default async function ProjectIssues({
             </option>
           ))}
         </select>
+        {caller && (
+          <label className="flex items-center gap-1.5 rounded border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700">
+            <input type="checkbox" name="assignedTo" value="me" defaultChecked={assignedToMe} />
+            Assigned to me
+          </label>
+        )}
         <button type="submit" className="rounded bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-zinc-50 dark:text-zinc-900">
           Apply
         </button>

@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { getIssue, getIssueEvent, getIssueTimeline, getIssueTagDistribution } from "@/lib/api";
+import { getIssue, getIssueEvent, getIssueTimeline, getIssueTagDistribution, listUsers } from "@/lib/api";
 import { SESSION_COOKIE_NAME } from "@/lib/session";
 import { parseEventPayload } from "@/lib/eventPayload";
 import { IssueActions } from "./IssueActions";
 import { EventTabs } from "./EventTabs";
 import { Timeline } from "./Timeline";
 import { TagDistributionView } from "./TagDistributionView";
+import { AssigneeSelect } from "./AssigneeSelect";
 
 export default async function IssueDetail({
   params,
@@ -20,11 +21,12 @@ export default async function IssueDetail({
   const eventPage = Math.max(1, Number(sp.event ?? "1") || 1);
 
   const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
-  const [issue, eventsResult, timeline, tagDistribution] = await Promise.all([
+  const [issue, eventsResult, timeline, tagDistribution, users] = await Promise.all([
     getIssue(issueId, token),
     getIssueEvent(issueId, eventPage, token).catch(() => null),
     getIssueTimeline(issueId, token).catch(() => null),
     getIssueTagDistribution(issueId, token).catch(() => null),
+    token ? listUsers(token).catch(() => []) : Promise.resolve([]),
   ]);
   const event = eventsResult?.items[0] ?? null;
   const total = eventsResult?.total ?? 0;
@@ -49,7 +51,10 @@ export default async function IssueDetail({
             {new Date(issue.lastSeen).toLocaleString()}
           </p>
         </div>
-        <IssueActions issueId={issue.id} currentStatus={issue.status} />
+        <div className="flex items-center gap-2">
+          <AssigneeSelect issueId={issue.id} currentAssigneeId={issue.assignedToUserId} users={users} />
+          <IssueActions issueId={issue.id} currentStatus={issue.status} />
+        </div>
       </div>
 
       {timeline && (
