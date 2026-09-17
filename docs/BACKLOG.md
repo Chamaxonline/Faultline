@@ -134,15 +134,15 @@ captures nearly all the underlying data (`Frames` with `InApp`/`ContextLines`,
 blob on the issue detail page instead of rendered. Most of this epic is UI work
 against data that already exists, not new capture work.
 
-### Story 1: Structured stack trace rendering (P0 — data already exists, zero backend work)
-- [ ] Parse `RawPayload` server-side (or client-side) into typed sections instead
-      of one `<pre>` JSON dump
-- [ ] Render `Frames` as a formatted list: function, file:line, in-app frames
+### Story 1: Structured stack trace rendering (P0 — data already exists, zero backend work) — done
+- [x] Parse `RawPayload` client-side into typed sections instead of one raw JSON dump
+- [x] Render `Frames` as a formatted list: function, file:line, in-app frames
       visually distinct from library frames (`InApp` is already computed)
-- [ ] Show `ContextLines`/`ContextStartLine` as a code snippet under each frame
-      when present
-- [ ] Collapse library frames by default with a "Show N more frames" toggle
-      (matches the screenshot's "Show 7 more frames")
+- [x] Show `ContextLines`/`ContextStartLine` as a code snippet under each frame,
+      failing line highlighted
+- [x] Collapse library frames by default with a "Show N library frames" toggle
+      (rest of the raw payload — tags/breadcrumbs/context — kept as a collapsible
+      fallback `<details>` until Story 2 splits it into proper tabs)
 
 ### Story 2: Tabbed issue detail layout (P0 — depends on Story 1)
 - [ ] Replace the single raw-JSON block with tabs: **Stack Trace** / **Tags** /
