@@ -48,6 +48,8 @@ export type EventItem = {
 
 export type IssueDetail = IssueSummary & {
   exceptionType: string | null;
+  ignoreUntilCount: number | null;
+  ignoreUntilDate: string | null;
   recentEvents: EventItem[];
 };
 
@@ -119,11 +121,16 @@ export type TagDistribution = { sampledEvents: number; tags: Record<string, Reco
 export const getIssueTagDistribution = (issueId: string, token?: string) =>
   apiFetch<TagDistribution>(`/api/v1/issues/${issueId}/tags`, token);
 
-export const updateIssueStatus = (issueId: string, status: string, token: string) =>
+export const updateIssueStatus = (
+  issueId: string,
+  status: string,
+  token: string,
+  ignoreCondition?: { ignoreUntilCount?: number; ignoreUntilDate?: string },
+) =>
   apiFetch<void>(`/api/v1/issues/${issueId}/status`, token, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, ...ignoreCondition }),
   });
 
 export const assignIssue = (issueId: string, userId: string | null, token: string) =>

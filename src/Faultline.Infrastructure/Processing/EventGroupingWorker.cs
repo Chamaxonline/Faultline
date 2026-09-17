@@ -40,6 +40,7 @@ public class EventGroupingWorker(
 
         var isNewIssue = issue is null;
         var isRegression = false;
+        var isUnignored = false;
 
         if (issue is null)
         {
@@ -68,6 +69,18 @@ public class EventGroupingWorker(
                 issue.Status = IssueStatus.Unresolved;
                 isRegression = true;
             }
+            else if (issue.Status == IssueStatus.Ignored)
+            {
+                var countConditionMet = issue.IgnoreUntilCount is not null && issue.Count >= issue.IgnoreUntilCount;
+                var dateConditionMet = issue.IgnoreUntilDate is not null && evt.Timestamp >= issue.IgnoreUntilDate;
+                if (countConditionMet || dateConditionMet)
+                {
+                    issue.Status = IssueStatus.Unresolved;
+                    issue.IgnoreUntilCount = null;
+                    issue.IgnoreUntilDate = null;
+                    isUnignored = true;
+                }
+            }
         }
 
         issue.LastEnvironment = evt.Environment;
@@ -91,7 +104,7 @@ public class EventGroupingWorker(
             var project = await db.Projects.AsNoTracking().FirstAsync(p => p.Id == projectId, ct);
             await alerts.NotifyNewIssueAsync(project, issue, ct);
         }
-        else if (isRegression)
+        else if (isRegression || isUnignored)
         {
             var project = await db.Projects.AsNoTracking().FirstAsync(p => p.Id == projectId, ct);
             await alerts.NotifyRegressionAsync(project, issue, ct);

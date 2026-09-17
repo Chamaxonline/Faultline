@@ -26,6 +26,11 @@ public class Issue
 
     public Guid? AssignedToUserId { get; set; }
 
+    // when Status == Ignored, either or both may be set; the worker clears
+    // Status back to Unresolved (and both fields) once a condition is met
+    public int? IgnoreUntilCount { get; set; }
+    public DateTimeOffset? IgnoreUntilDate { get; set; }
+
     public Project Project { get; set; } = default!;
     public User? AssignedToUser { get; set; }
     public List<Event> Events { get; set; } = [];

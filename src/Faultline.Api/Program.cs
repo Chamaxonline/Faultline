@@ -224,7 +224,7 @@ app.MapGet("/api/v1/issues/{issueId:guid}", async (Guid issueId, FaultlineDbCont
             .Where(i => i.Id == issueId)
             .Select(i => new IssueDetailDto(
                 i.Id, i.Title, i.ExceptionType, i.Level, i.Status.ToString(), i.Count, i.FirstSeen, i.LastSeen,
-                i.AssignedToUserId,
+                i.AssignedToUserId, i.IgnoreUntilCount, i.IgnoreUntilDate,
                 i.Events.OrderByDescending(e => e.Timestamp).Take(20)
                     .Select(e => new EventDto(e.Id, e.Timestamp, e.Release, e.Environment, e.RawPayload))
                     .ToList()))
@@ -364,10 +364,15 @@ app.MapPatch("/api/v1/issues/{issueId:guid}/status", async (
         if (!Enum.TryParse<IssueStatus>(body.Status, ignoreCase: true, out var status))
             return Results.BadRequest(new { error = "invalid status" });
 
+        if (status != IssueStatus.Ignored && (body.IgnoreUntilCount is not null || body.IgnoreUntilDate is not null))
+            return Results.BadRequest(new { error = "ignoreUntilCount/ignoreUntilDate only apply when status is Ignored" });
+
         var issue = await db.Issues.FirstOrDefaultAsync(i => i.Id == issueId, ct);
         if (issue is null) return Results.NotFound();
 
         issue.Status = status;
+        issue.IgnoreUntilCount = status == IssueStatus.Ignored ? body.IgnoreUntilCount : null;
+        issue.IgnoreUntilDate = status == IssueStatus.Ignored ? body.IgnoreUntilDate : null;
         await db.SaveChangesAsync(ct);
 
         return Results.NoContent();
@@ -441,9 +446,9 @@ static string Slugify(string name) =>
 
 record ProjectDto(Guid Id, string Name, string Slug, string PublicKey);
 record IssueSummaryDto(Guid Id, string Title, string Level, string Status, int Count, DateTimeOffset FirstSeen, DateTimeOffset LastSeen, string? Environment, string? Release, Guid? AssignedToUserId);
-record IssueDetailDto(Guid Id, string Title, string? ExceptionType, string Level, string Status, int Count, DateTimeOffset FirstSeen, DateTimeOffset LastSeen, Guid? AssignedToUserId, List<EventDto> RecentEvents);
+record IssueDetailDto(Guid Id, string Title, string? ExceptionType, string Level, string Status, int Count, DateTimeOffset FirstSeen, DateTimeOffset LastSeen, Guid? AssignedToUserId, int? IgnoreUntilCount, DateTimeOffset? IgnoreUntilDate, List<EventDto> RecentEvents);
 record EventDto(Guid Id, DateTimeOffset Timestamp, string? Release, string? Environment, string RawPayload);
-record UpdateIssueStatusRequest(string Status);
+record UpdateIssueStatusRequest(string Status, int? IgnoreUntilCount, DateTimeOffset? IgnoreUntilDate);
 record AssignIssueRequest(Guid? UserId);
 record CreateProjectRequest(string Name);
 record PagedResult<T>(List<T> Items, int Total, int Page, int PageSize);

@@ -53,7 +53,12 @@ export default async function IssueDetail({
         </div>
         <div className="flex items-center gap-2">
           <AssigneeSelect issueId={issue.id} currentAssigneeId={issue.assignedToUserId} users={users} />
-          <IssueActions issueId={issue.id} currentStatus={issue.status} />
+          <IssueActions
+            issueId={issue.id}
+            currentStatus={issue.status}
+            ignoreUntilCount={issue.ignoreUntilCount}
+            ignoreUntilDate={issue.ignoreUntilDate}
+          />
         </div>
       </div>
 

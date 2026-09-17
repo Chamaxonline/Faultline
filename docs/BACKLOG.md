@@ -190,12 +190,26 @@ against data that already exists, not new capture work.
       confirmed via API, both dashboard pages (`/issues/[id]`,
       `/projects/[id]`) render the new UI with no server errors
 
-### Story 6: Richer resolve/ignore (P2)
-- [ ] "Ignore until N more occurrences" / "until a date" instead of today's
-      binary Resolved/Ignored/Unresolved
-- [ ] Priority field (High/Medium/Low), separate from `Level` — only worth
-      building if `Level` (error/warning/fatal/info) turns out not to cover what
-      triage actually needs; confirm before building
+### Story 6: Richer resolve/ignore (P2) — done
+- [x] "Ignore until N more occurrences" / "until a date" instead of today's
+      binary Resolved/Ignored/Unresolved. `Issue.IgnoreUntilCount` /
+      `IgnoreUntilDate` (either or both, nullable), set via the existing
+      `PATCH /api/v1/issues/{id}/status` (now also accepts these two fields,
+      only meaningful when status=Ignored — rejected otherwise). The worker's
+      `EventGroupingWorker` checks both conditions on every new event for an
+      Ignored issue (same place it already reopens Resolved issues on
+      regression) and auto-flips back to Unresolved, clearing both fields, the
+      moment either condition is met — verified end-to-end: ignored an issue
+      until count+2, fired 2 more events through the sample app, confirmed it
+      flipped back to Unresolved automatically
+- [x] Dashboard: `IssueActions`' Ignore button now opens an inline form for
+      the two optional conditions; issue header shows "Ignored until N
+      occurrences/date" when set
+- Priority field (High/Medium/Low) — **not built**. Decided against it rather
+  than confirming first: `Level` (error/warning/fatal/info) already carries
+  the severity signal triage needs, and a second field would just be a
+  redundant axis to keep in sync. Revisit only if a real workflow shows
+  `Level` isn't enough.
 
 ### Story 7: Activity feed (P2)
 - [ ] `IssueComment` entity (issue id, user id, body, timestamp)
