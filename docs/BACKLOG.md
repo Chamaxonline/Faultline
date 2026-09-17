@@ -126,6 +126,78 @@ drill for Postgres.
       if none exists
 - Full walkthrough in `deploy/README.md`
 
+## Epic: Issue detail UI — parity with Sentry's issue page (P1)
+
+Reference: a real Sentry issue page (JS/React sample project). Faultline already
+captures nearly all the underlying data (`Frames` with `InApp`/`ContextLines`,
+`Tags`, `Extra`, `Breadcrumbs`, `UserContext`) — it's just dumped as one raw JSON
+blob on the issue detail page instead of rendered. Most of this epic is UI work
+against data that already exists, not new capture work.
+
+### Story 1: Structured stack trace rendering (P0 — data already exists, zero backend work)
+- [ ] Parse `RawPayload` server-side (or client-side) into typed sections instead
+      of one `<pre>` JSON dump
+- [ ] Render `Frames` as a formatted list: function, file:line, in-app frames
+      visually distinct from library frames (`InApp` is already computed)
+- [ ] Show `ContextLines`/`ContextStartLine` as a code snippet under each frame
+      when present
+- [ ] Collapse library frames by default with a "Show N more frames" toggle
+      (matches the screenshot's "Show 7 more frames")
+
+### Story 2: Tabbed issue detail layout (P0 — depends on Story 1)
+- [ ] Replace the single raw-JSON block with tabs: **Stack Trace** / **Tags** /
+      **Breadcrumbs** / **Context** (mirrors the screenshot's tab row minus
+      Replay/Trace, which are out of scope — see below)
+- [ ] Tags tab: render the event's `Tags` dict as a simple list (aggregation
+      across events is Story 4, not this one)
+- [ ] Breadcrumbs tab: render the `Breadcrumbs` array as a timeline (timestamp,
+      category, level, message)
+- [ ] Context tab: `UserContext` + `Extra`
+
+### Story 3: Per-event navigation (P1)
+- [ ] Replace the flat "last 20 events" list with First/Previous/Next/Latest
+      navigation through an issue's individual events (matches the screenshot's
+      event pager)
+- [ ] Api: paginate `GET /api/v1/issues/{id}/events` instead of a fixed `Take(20)`
+      inline on the issue payload
+
+### Story 4: Events-over-time + tag distribution (P1 — needs light aggregation)
+- [ ] Small sparkline/histogram of event counts over time on the issue page
+      (group by hour/day; a simple `GROUP BY date_trunc` query, not a new metrics
+      system)
+- [ ] Tag value distribution (e.g. "environment: 100% Development") computed
+      over the issue's recent events — no schema change needed, just aggregate
+      the same `Tags` dict already stored per event
+
+### Story 5: Assignee (P1 — builds on the Users epic already done)
+- [ ] `Issue.AssignedToUserId` (nullable FK to `User`)
+- [ ] `PATCH /api/v1/issues/{id}/assign`, dashboard dropdown using the existing
+      Users list
+- [ ] "Assigned to me" filter on the issue list page
+
+### Story 6: Richer resolve/ignore (P2)
+- [ ] "Ignore until N more occurrences" / "until a date" instead of today's
+      binary Resolved/Ignored/Unresolved
+- [ ] Priority field (High/Medium/Low), separate from `Level` — only worth
+      building if `Level` (error/warning/fatal/info) turns out not to cover what
+      triage actually needs; confirm before building
+
+### Story 7: Activity feed (P2)
+- [ ] `IssueComment` entity (issue id, user id, body, timestamp)
+- [ ] Simple comment thread on the issue detail page — status changes
+      (resolved/ignored/assigned) logged as system entries in the same feed
+
+### Explicitly out of scope for this epic (same reasoning as ADR-0001)
+- **Session Replay** — needs a browser SDK recording DOM/video-like sessions;
+  Faultline has no browser SDK at all yet, and this is APM-adjacent, not error
+  tracking
+- **Seer / Autofix (AI root cause analysis)** — a paid Sentry-specific feature,
+  not something to build in-house right now
+- **Trace ID / distributed tracing links** — perf tracing is explicitly out of
+  scope per ADR-0001
+- **Third-party issue linking** (Jira/Linear) — genuinely useful eventually, but
+  not part of "look like Sentry's issue page," revisit as its own epic later
+
 ## Explicitly out of scope (Sentry has these, Faultline doesn't need them)
 
 Per ADR-0001's "error tracking only" decision — revisit only if a real need shows up:
