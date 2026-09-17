@@ -245,8 +245,22 @@ app.MapPatch("/api/v1/issues/{issueId:guid}/assign", async (
         var issue = await db.Issues.FirstOrDefaultAsync(i => i.Id == issueId, ct);
         if (issue is null) return Results.NotFound();
 
-        if (body.UserId is not null && !await db.Users.AnyAsync(u => u.Id == body.UserId, ct))
-            return Results.BadRequest(new { error = "user not found" });
+        string? assigneeName = null;
+        if (body.UserId is not null)
+        {
+            assigneeName = await db.Users.Where(u => u.Id == body.UserId).Select(u => u.Name).FirstOrDefaultAsync(ct);
+            if (assigneeName is null) return Results.BadRequest(new { error = "user not found" });
+        }
+
+        if (issue.AssignedToUserId != body.UserId)
+        {
+            db.IssueComments.Add(new IssueComment
+            {
+                IssueId = issueId,
+                Body = assigneeName is not null ? $"Assigned to {assigneeName}" : "Unassigned",
+                IsSystem = true
+            });
+        }
 
         issue.AssignedToUserId = body.UserId;
         await db.SaveChangesAsync(ct);
@@ -254,6 +268,43 @@ app.MapPatch("/api/v1/issues/{issueId:guid}/assign", async (
         return Results.NoContent();
     })
     .WithName("AssignIssue")
+    .WithOpenApi()
+    .RequireAuthorization();
+
+app.MapGet("/api/v1/issues/{issueId:guid}/comments", async (Guid issueId, FaultlineDbContext db, CancellationToken ct) =>
+        await db.IssueComments.AsNoTracking()
+            .Where(c => c.IssueId == issueId)
+            .OrderBy(c => c.CreatedAt)
+            .Select(c => new IssueCommentDto(c.Id, c.AuthorUserId, c.AuthorUser != null ? c.AuthorUser.Name : null, c.Body, c.IsSystem, c.CreatedAt))
+            .ToListAsync(ct))
+    .WithName("ListIssueComments")
+    .WithOpenApi()
+    .RequireAuthorization();
+
+app.MapPost("/api/v1/issues/{issueId:guid}/comments", async (
+        Guid issueId,
+        CreateCommentRequest body,
+        HttpContext ctx,
+        FaultlineDbContext db,
+        CancellationToken ct) =>
+    {
+        if (string.IsNullOrWhiteSpace(body.Text))
+            return Results.BadRequest(new { error = "text is required" });
+
+        if (!await db.Issues.AnyAsync(i => i.Id == issueId, ct))
+            return Results.NotFound();
+
+        var userId = Guid.Parse(ctx.User.FindFirst("sub")!.Value);
+        var comment = new IssueComment { IssueId = issueId, AuthorUserId = userId, Body = body.Text.Trim() };
+        db.IssueComments.Add(comment);
+        await db.SaveChangesAsync(ct);
+
+        var authorName = await db.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.Name).FirstAsync(ct);
+        return Results.Created(
+            $"/api/v1/issues/{issueId}/comments/{comment.Id}",
+            new IssueCommentDto(comment.Id, userId, authorName, comment.Body, false, comment.CreatedAt));
+    })
+    .WithName("CreateIssueComment")
     .WithOpenApi()
     .RequireAuthorization();
 
@@ -370,6 +421,19 @@ app.MapPatch("/api/v1/issues/{issueId:guid}/status", async (
         var issue = await db.Issues.FirstOrDefaultAsync(i => i.Id == issueId, ct);
         if (issue is null) return Results.NotFound();
 
+        if (issue.Status != status)
+        {
+            var note = $"Status changed to {status}";
+            if (status == IssueStatus.Ignored && (body.IgnoreUntilCount is not null || body.IgnoreUntilDate is not null))
+            {
+                var conditions = new List<string>();
+                if (body.IgnoreUntilCount is not null) conditions.Add($"{body.IgnoreUntilCount} occurrences");
+                if (body.IgnoreUntilDate is not null) conditions.Add($"{body.IgnoreUntilDate:yyyy-MM-dd}");
+                note += $" (until {string.Join(" or ", conditions)})";
+            }
+            db.IssueComments.Add(new IssueComment { IssueId = issueId, Body = note, IsSystem = true });
+        }
+
         issue.Status = status;
         issue.IgnoreUntilCount = status == IssueStatus.Ignored ? body.IgnoreUntilCount : null;
         issue.IgnoreUntilDate = status == IssueStatus.Ignored ? body.IgnoreUntilDate : null;
@@ -454,3 +518,5 @@ record CreateProjectRequest(string Name);
 record PagedResult<T>(List<T> Items, int Total, int Page, int PageSize);
 record TimelinePointDto(DateTime Date, int Count);
 record TagDistributionDto(int SampledEvents, Dictionary<string, Dictionary<string, int>> Tags);
+record IssueCommentDto(Guid Id, Guid? AuthorUserId, string? AuthorName, string Body, bool IsSystem, DateTimeOffset CreatedAt);
+record CreateCommentRequest(string Text);

@@ -10,6 +10,7 @@ public class FaultlineDbContext(DbContextOptions<FaultlineDbContext> options) : 
     public DbSet<Issue> Issues => Set<Issue>();
     public DbSet<Event> Events => Set<Event>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<IssueComment> IssueComments => Set<IssueComment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,6 +55,20 @@ public class FaultlineDbContext(DbContextOptions<FaultlineDbContext> options) : 
             e.HasOne(u => u.Organization)
                 .WithMany(o => o.Users)
                 .HasForeignKey(u => u.OrganizationId);
+        });
+
+        modelBuilder.Entity<IssueComment>(e =>
+        {
+            e.HasIndex(c => new { c.IssueId, c.CreatedAt });
+            e.HasOne(c => c.Issue)
+                .WithMany()
+                .HasForeignKey(c => c.IssueId)
+                .OnDelete(DeleteBehavior.Cascade);
+            // deleting a user keeps their past comments, just anonymizes authorship
+            e.HasOne(c => c.AuthorUser)
+                .WithMany()
+                .HasForeignKey(c => c.AuthorUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

@@ -68,6 +68,12 @@ public class EventGroupingWorker(
             {
                 issue.Status = IssueStatus.Unresolved;
                 isRegression = true;
+                db.IssueComments.Add(new IssueComment
+                {
+                    IssueId = issue.Id,
+                    Body = "Reopened automatically — new event received on a resolved issue",
+                    IsSystem = true
+                });
             }
             else if (issue.Status == IssueStatus.Ignored)
             {
@@ -79,6 +85,12 @@ public class EventGroupingWorker(
                     issue.IgnoreUntilCount = null;
                     issue.IgnoreUntilDate = null;
                     isUnignored = true;
+                    db.IssueComments.Add(new IssueComment
+                    {
+                        IssueId = issue.Id,
+                        Body = "Reopened automatically — ignore condition met",
+                        IsSystem = true
+                    });
                 }
             }
         }

@@ -140,6 +140,25 @@ export const assignIssue = (issueId: string, userId: string | null, token: strin
     body: JSON.stringify({ userId }),
   });
 
+export type IssueComment = {
+  id: string;
+  authorUserId: string | null;
+  authorName: string | null;
+  body: string;
+  isSystem: boolean;
+  createdAt: string;
+};
+
+export const listIssueComments = (issueId: string, token?: string) =>
+  apiFetch<IssueComment[]>(`/api/v1/issues/${issueId}/comments`, token);
+
+export const createIssueComment = (issueId: string, text: string, token: string) =>
+  apiFetch<IssueComment>(`/api/v1/issues/${issueId}/comments`, token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+
 export const listUsers = (token: string) => apiFetch<User[]>("/api/v1/users", token);
 
 export const createUser = (body: { email: string; name: string; password: string; role?: string }, token: string) =>

@@ -211,10 +211,19 @@ against data that already exists, not new capture work.
   redundant axis to keep in sync. Revisit only if a real workflow shows
   `Level` isn't enough.
 
-### Story 7: Activity feed (P2)
-- [ ] `IssueComment` entity (issue id, user id, body, timestamp)
-- [ ] Simple comment thread on the issue detail page — status changes
-      (resolved/ignored/assigned) logged as system entries in the same feed
+### Story 7: Activity feed (P2) — done
+- [x] `IssueComment` entity (issue id, nullable author user id, body, `IsSystem`
+      flag, timestamp) — nullable author + `IsSystem` so the same table serves
+      both user comments and system log entries, no separate audit table
+- [x] `GET`/`POST /api/v1/issues/{id}/comments`, `ActivityFeed` component on
+      the issue detail page (textarea + list, system entries styled as plain
+      text, user comments as bordered cards with author + timestamp)
+- [x] Status changes, assign/unassign, and the worker's automatic reopen
+      (resolved-regression and ignore-condition-met) all write a system entry
+      with the resolved text snapshotted at write time (so it doesn't change
+      if a user is later renamed) — verified end-to-end: assign, ignore-with-
+      condition, a manual comment, and an auto-unignore via the sample app all
+      showed up correctly in the feed, dashboard rendered with no errors
 
 ### Explicitly out of scope for this epic (same reasoning as ADR-0001)
 - **Session Replay** — needs a browser SDK recording DOM/video-like sessions;
