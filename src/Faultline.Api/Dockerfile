@@ -4,11 +4,13 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 COPY Faultline.slnx .
+COPY src/Faultline.Contracts/Faultline.Contracts.csproj src/Faultline.Contracts/
 COPY src/Faultline.Domain/Faultline.Domain.csproj src/Faultline.Domain/
 COPY src/Faultline.Infrastructure/Faultline.Infrastructure.csproj src/Faultline.Infrastructure/
 COPY src/Faultline.Api/Faultline.Api.csproj src/Faultline.Api/
 RUN dotnet restore src/Faultline.Api/Faultline.Api.csproj
 
+COPY src/Faultline.Contracts/ src/Faultline.Contracts/
 COPY src/Faultline.Domain/ src/Faultline.Domain/
 COPY src/Faultline.Infrastructure/ src/Faultline.Infrastructure/
 COPY src/Faultline.Api/ src/Faultline.Api/
