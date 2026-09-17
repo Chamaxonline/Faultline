@@ -31,6 +31,35 @@ dotnet run --project src/Faultline.Worker   # grouping worker
 cd dashboard && npm run dev                 # dashboard UI
 ```
 
+On first run, the Api bootstraps one admin user from `Auth:DefaultAdminEmail` /
+`Auth:DefaultAdminPassword` config (set in `appsettings.Development.json` for
+local dev: `admin@faultline.local` / `ChangeMe123!`). Sign in at the dashboard's
+`/login`, then use the admin-only **Users** page to create everyone else — there's
+no self-signup.
+
+## Auth
+
+One bootstrap admin, admin creates every other user (email + name + password).
+JWT bearer auth on the Api; every read/management endpoint requires it except
+ingestion (`POST /api/v1/{projectKey}/store`, which stays project-key-only, same
+model as Sentry's DSN).
+
+Required config (env vars in Production — nothing is baked into `appsettings.json`):
+
+| Setting | Purpose |
+|---|---|
+| `Auth__JwtSigningKey` | HMAC signing key for issued tokens — pick a long random string |
+| `Auth__DefaultAdminEmail` / `Auth__DefaultAdminPassword` | Bootstrap admin, only used if no users exist yet |
+
+Without `Auth:DefaultAdminEmail`/`DefaultAdminPassword` set on a fresh database,
+the Api logs a warning and skips creating an admin — nobody can log in until you
+set them and restart.
+
+**Known limitation:** the dashboard stores the JWT in a non-httpOnly cookie so
+both server components and client components can read it without extra
+plumbing — simplest option for this stage, at the cost of some XSS exposure.
+See `docs/BACKLOG.md` for the hardening path if this needs tightening later.
+
 ## Using the SDK in another app
 
 ```csharp
@@ -152,7 +181,7 @@ See [deploy/README.md](deploy/README.md) for two paths:
   but doesn't touch any live server until you configure those.
 
 ## MVP scope
-Ingestion + dedupe/grouping + search/filter/pagination + Teams alerts + basic
-dashboard + .NET SDK.
-Not yet built: Entra ID auth on the dashboard, source map support, perf tracing,
-uptime checks, log aggregation, non-.NET SDKs, Hetzner deployment.
+Ingestion + dedupe/grouping + search/filter/pagination + Teams alerts + auth
+(admin-created users, JWT) + basic dashboard + .NET SDK.
+Not yet built: source map support, perf tracing, uptime checks, log
+aggregation, non-.NET SDKs.

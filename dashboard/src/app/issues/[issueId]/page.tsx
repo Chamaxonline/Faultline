@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { getIssue } from "@/lib/api";
+import { SESSION_COOKIE_NAME } from "@/lib/session";
 import { IssueActions } from "./IssueActions";
 
 export default async function IssueDetail({
@@ -8,7 +10,8 @@ export default async function IssueDetail({
   params: Promise<{ issueId: string }>;
 }) {
   const { issueId } = await params;
-  const issue = await getIssue(issueId);
+  const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
+  const issue = await getIssue(issueId, token);
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">

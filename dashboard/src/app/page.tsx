@@ -1,9 +1,12 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { listProjects } from "@/lib/api";
+import { SESSION_COOKIE_NAME } from "@/lib/session";
 import { NewProjectForm } from "./NewProjectForm";
 
 export default async function Home() {
-  const projects = await listProjects().catch(() => []);
+  const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
+  const projects = token ? await listProjects(token).catch(() => []) : [];
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">

@@ -6,6 +6,9 @@
 #   FAULTLINE_DOMAIN=faultline.internal.bistec.com
 #   ALERTS_TEAMS_WEBHOOK_URL=...   (optional)
 #   GHCR_IMAGE_PREFIX=ghcr.io/chamaxonline/faultline
+#   AUTH_JWT_SIGNING_KEY=...              (long random string)
+#   AUTH_DEFAULT_ADMIN_EMAIL=...          (bootstrap admin, only used on a fresh DB)
+#   AUTH_DEFAULT_ADMIN_PASSWORD=...       (change after first login)
 
 services:
   postgres:
@@ -34,6 +37,9 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=faultline;Username=faultline;Password=${POSTGRES_PASSWORD}
       ConnectionStrings__Redis: redis:6379
+      Auth__JwtSigningKey: ${AUTH_JWT_SIGNING_KEY}
+      Auth__DefaultAdminEmail: ${AUTH_DEFAULT_ADMIN_EMAIL:-}
+      Auth__DefaultAdminPassword: ${AUTH_DEFAULT_ADMIN_PASSWORD:-}
 
   worker:
     image: ${GHCR_IMAGE_PREFIX}-worker:latest

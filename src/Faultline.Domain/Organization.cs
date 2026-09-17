@@ -8,4 +8,5 @@ public class Organization
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public List<Project> Projects { get; set; } = [];
+    public List<User> Users { get; set; } = [];
 }

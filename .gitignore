@@ -9,6 +9,9 @@ node_modules/
 out/
 dashboard/.env*.local
 
+# local docker-compose port overrides / secrets
+.env
+
 # Editor
 .vs/
 .vscode/

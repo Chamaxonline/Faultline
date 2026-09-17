@@ -64,14 +64,34 @@ exception's message goes over the wire and into Postgres as-is.
       disk and retry on a timer instead of dropping after 3 attempts (opt-in via
       `OfflineQueueDirectory`)
 
-## Epic: Auth (P0 — blocked on you)
+## Epic: Auth (done — pivoted away from Entra ID)
 
-Already scoped in a previous conversation — waiting on an Entra ID App Registration
-(Tenant ID, Client ID, Client secret, Application ID URI).
+Originally scoped as Entra ID SSO (NextAuth + Microsoft.Identity.Web), but that was
+blocked on an App Registration. Pivoted to a simpler self-contained model: one
+bootstrap admin, admin creates every other user (email + name + password), JWT
+bearer auth on the Api. Revisit Entra ID later if Bistec wants SSO instead.
 
-- [ ] NextAuth (Auth.js) login gate on the dashboard, Microsoft Entra ID provider
-- [ ] Microsoft.Identity.Web bearer validation on the Api's read/management
-      endpoints (ingestion endpoint stays project-key-only, like Sentry's DSN)
+- [x] `User` entity (email, name, password hash, role: Admin/Member) — single-org,
+      matches the existing Project/Organization model
+- [x] `POST /api/v1/auth/login` issues a JWT (HMAC-signed, 8h default lifetime);
+      `GET /api/v1/auth/me` returns the caller's identity from the token
+- [x] `POST/GET/DELETE /api/v1/users` — admin-only (`AdminOnly` policy), can't
+      delete yourself or the last remaining admin
+- [x] Every existing read/management endpoint now requires authentication
+      (`RequireAuthorization()`); ingestion (`POST /api/v1/{projectKey}/store`)
+      stays anonymous — project-key auth, same model as Sentry's DSN
+- [x] Bootstrap: first admin created from `Auth:DefaultAdminEmail`/
+      `DefaultAdminPassword` config on first run (there's no signup flow, so the
+      very first admin has to come from somewhere) — logs a warning and skips if
+      unset, rather than creating a guessable default
+- [x] Dashboard: login page, middleware-gated routes (redirects to `/login`),
+      admin-only Users page (create/list/remove), shared header with sign-out
+
+**Known limitation (documented, not fixed):** the JWT is stored in a
+non-httpOnly cookie so both server components and client components can read it
+without extra plumbing — trades some XSS exposure for simplicity, matching the
+"initial stage" scope this was asked for. Hardening later means moving writes
+behind Next.js Route Handlers that hold an httpOnly cookie server-side only.
 
 ## Epic: Deployment (P1)
 

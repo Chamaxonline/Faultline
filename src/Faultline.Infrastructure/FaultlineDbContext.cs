@@ -9,6 +9,7 @@ public class FaultlineDbContext(DbContextOptions<FaultlineDbContext> options) : 
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<Issue> Issues => Set<Issue>();
     public DbSet<Event> Events => Set<Event>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -40,6 +41,14 @@ public class FaultlineDbContext(DbContextOptions<FaultlineDbContext> options) : 
             e.HasOne(ev => ev.Issue)
                 .WithMany(i => i.Events)
                 .HasForeignKey(ev => ev.IssueId);
+        });
+
+        modelBuilder.Entity<User>(e =>
+        {
+            e.HasIndex(u => u.Email).IsUnique();
+            e.HasOne(u => u.Organization)
+                .WithMany(o => o.Users)
+                .HasForeignKey(u => u.OrganizationId);
         });
     }
 }

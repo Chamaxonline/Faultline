@@ -3,15 +3,19 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { updateIssueStatus } from "@/lib/api";
+import { getClientToken } from "@/lib/session";
 
 export function IssueActions({ issueId, currentStatus }: { issueId: string; currentStatus: string }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
 
   async function setStatus(status: string) {
+    const token = getClientToken();
+    if (!token) return;
+
     setPending(true);
     try {
-      await updateIssueStatus(issueId, status);
+      await updateIssueStatus(issueId, status, token);
       router.refresh();
     } finally {
       setPending(false);

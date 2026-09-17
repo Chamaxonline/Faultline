@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { listIssues } from "@/lib/api";
+import { SESSION_COOKIE_NAME } from "@/lib/session";
 
 const levelColor: Record<string, string> = {
   fatal: "bg-red-600",
@@ -31,7 +33,8 @@ export default async function ProjectIssues({
     sort: sp.sort ?? "lastSeen",
   };
 
-  const result = await listIssues(projectId, { ...filters, page, pageSize }).catch(() => ({
+  const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
+  const result = await listIssues(projectId, { ...filters, page, pageSize }, token).catch(() => ({
     items: [],
     total: 0,
     page: 1,

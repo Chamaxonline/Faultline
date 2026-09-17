@@ -27,6 +27,10 @@ alive.
    - `Cors__AllowedOrigins__0` — your Vercel dashboard URL (step 4), once you have it
    - `Alerts__DashboardBaseUrl` — same URL, used to build "view issue" links in Teams alerts
    - `Alerts__TeamsWebhookUrl` — optional
+   - `Auth__DefaultAdminEmail` / `Auth__DefaultAdminPassword` — bootstraps the first
+     admin on a fresh database (change the password after first login)
+   - `Auth__JwtSigningKey` — Render generates this one for you (`generateValue: true`
+     in the blueprint), nothing to fill in
 
    Render's free web service spins down after ~15 min idle; the first request after
    that takes 30-60s to wake up. Same for Neon/Upstash waking from their own idle
@@ -72,6 +76,9 @@ SSH in (`ssh root@<ip>`) and drop these files into `/opt/faultline/`:
   FAULTLINE_DOMAIN=faultline.internal.bistec.com
   ALERTS_TEAMS_WEBHOOK_URL=<optional>
   GHCR_IMAGE_PREFIX=ghcr.io/chamaxonline/faultline
+  AUTH_JWT_SIGNING_KEY=<generate a long random string>
+  AUTH_DEFAULT_ADMIN_EMAIL=<bootstraps the first admin on a fresh database>
+  AUTH_DEFAULT_ADMIN_PASSWORD=<change after first login>
   ```
 
 Then:

@@ -1,11 +1,17 @@
+using System.Text;
 using System.Text.Json;
+using Faultline.Api.Auth;
 using Faultline.Domain;
 using Faultline.Domain.Contracts;
 using Faultline.Infrastructure;
 using Faultline.Infrastructure.Alerts;
 using Faultline.Infrastructure.Processing;
 using Faultline.Infrastructure.Queue;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using StackExchange.Redis;
 
@@ -48,6 +54,34 @@ var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get
 builder.Services.AddCors(opt => opt.AddPolicy(DashboardCorsPolicy, policy =>
     policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
 
+var jwtSigningKey = builder.Configuration["Auth:JwtSigningKey"]
+    ?? throw new InvalidOperationException("Auth:JwtSigningKey is not configured");
+var jwtIssuer = builder.Configuration["Auth:JwtIssuer"] ?? "faultline";
+
+builder.Services.AddSingleton<JwtTokenService>();
+builder.Services.AddSingleton<PasswordHasher<User>>();
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(opt =>
+    {
+        // without this, ASP.NET Core remaps short claim names ("sub", "email") to
+        // long ClaimTypes URIs on the way in, breaking FindFirst("sub") lookups
+        opt.MapInboundClaims = false;
+        opt.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwtIssuer,
+            ValidateAudience = true,
+            ValidAudience = jwtIssuer,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSigningKey)),
+        };
+    });
+
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("AdminOnly", p => p.RequireRole(nameof(UserRole.Admin)));
+
 var app = builder.Build();
 
 // Must run in every environment, not just Development — a fresh Production
@@ -65,6 +99,9 @@ if (app.Environment.IsDevelopment())
 app.UseCors(DashboardCorsPolicy);
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapHealthChecks("/health");
 
 // Ingestion endpoint. Auth model mirrors Sentry's DSN: the project public key in the
@@ -88,14 +125,19 @@ app.MapPost("/api/v1/{projectKey}/store", async (
         return Results.Accepted();
     })
     .WithName("StoreEvent")
-    .WithOpenApi();
+    .WithOpenApi()
+    .AllowAnonymous();
+
+app.MapGroup("/api/v1/auth").MapAuthEndpoints();
+app.MapGroup("/api/v1/users").MapUserEndpoints().RequireAuthorization("AdminOnly");
 
 app.MapGet("/api/v1/projects", async (FaultlineDbContext db, CancellationToken ct) =>
         await db.Projects.AsNoTracking()
             .Select(p => new ProjectDto(p.Id, p.Name, p.Slug, p.PublicKey))
             .ToListAsync(ct))
     .WithName("ListProjects")
-    .WithOpenApi();
+    .WithOpenApi()
+    .RequireAuthorization();
 
 app.MapPost("/api/v1/projects", async (CreateProjectRequest body, FaultlineDbContext db, CancellationToken ct) =>
     {
@@ -117,7 +159,8 @@ app.MapPost("/api/v1/projects", async (CreateProjectRequest body, FaultlineDbCon
         return Results.Created($"/api/v1/projects/{project.Id}", new ProjectDto(project.Id, project.Name, project.Slug, project.PublicKey));
     })
     .WithName("CreateProject")
-    .WithOpenApi();
+    .WithOpenApi()
+    .RequireAuthorization();
 
 app.MapGet("/api/v1/projects/{projectId:guid}/issues", async (
         Guid projectId,
@@ -168,7 +211,8 @@ app.MapGet("/api/v1/projects/{projectId:guid}/issues", async (
         return Results.Ok(new PagedResult<IssueSummaryDto>(issues, total, pageNumber, size));
     })
     .WithName("ListIssues")
-    .WithOpenApi();
+    .WithOpenApi()
+    .RequireAuthorization();
 
 app.MapGet("/api/v1/issues/{issueId:guid}", async (Guid issueId, FaultlineDbContext db, CancellationToken ct) =>
     {
@@ -184,7 +228,8 @@ app.MapGet("/api/v1/issues/{issueId:guid}", async (Guid issueId, FaultlineDbCont
         return issue is null ? Results.NotFound() : Results.Ok(issue);
     })
     .WithName("GetIssue")
-    .WithOpenApi();
+    .WithOpenApi()
+    .RequireAuthorization();
 
 app.MapPatch("/api/v1/issues/{issueId:guid}/status", async (
         Guid issueId,
@@ -204,7 +249,8 @@ app.MapPatch("/api/v1/issues/{issueId:guid}/status", async (
         return Results.NoContent();
     })
     .WithName("UpdateIssueStatus")
-    .WithOpenApi();
+    .WithOpenApi()
+    .RequireAuthorization();
 
 app.Run();
 
@@ -221,6 +267,33 @@ static async Task MigrateDatabaseAsync(WebApplication app)
     {
         db.Organizations.Add(new Organization { Name = app.Configuration["DefaultOrganizationName"] ?? "Bistec" });
         await db.SaveChangesAsync();
+    }
+
+    // there's no signup flow (admin creates every other user) — the very first
+    // admin has to come from somewhere, so bootstrap one from config on first run.
+    if (!await db.Users.AnyAsync())
+    {
+        var email = app.Configuration["Auth:DefaultAdminEmail"];
+        var password = app.Configuration["Auth:DefaultAdminPassword"];
+
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            app.Logger.LogWarning(
+                "No users exist and Auth:DefaultAdminEmail/DefaultAdminPassword are not configured — " +
+                "nobody will be able to log in until you set them and restart.");
+        }
+        else
+        {
+            var org = await db.Organizations.FirstAsync();
+            var hasher = scope.ServiceProvider.GetRequiredService<PasswordHasher<User>>();
+            var admin = new User { OrganizationId = org.Id, Email = email.Trim().ToLowerInvariant(), Name = "Admin", Role = UserRole.Admin };
+            admin.PasswordHash = hasher.HashPassword(admin, password);
+
+            db.Users.Add(admin);
+            await db.SaveChangesAsync();
+
+            app.Logger.LogInformation("Bootstrapped admin user {Email} — change this password after first login.", admin.Email);
+        }
     }
 }
 

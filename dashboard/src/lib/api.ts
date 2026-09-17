@@ -49,36 +49,75 @@ export type IssueDetail = IssueSummary & {
   recentEvents: EventItem[];
 };
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, { ...init, cache: "no-store" });
-  if (!res.ok) throw new Error(`${init?.method ?? "GET"} ${path} failed: ${res.status}`);
+export type User = {
+  id: string;
+  email: string;
+  name: string;
+  role: "Admin" | "Member";
+};
+
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+
+async function apiFetch<T>(path: string, token: string | undefined, init?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = { ...(init?.headers as Record<string, string>) };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${API_URL}${path}`, { ...init, headers, cache: "no-store" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(res.status, body?.error ?? `${init?.method ?? "GET"} ${path} failed: ${res.status}`);
+  }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
-export const listProjects = () => apiFetch<Project[]>("/api/v1/projects");
+export const login = (email: string, password: string) =>
+  apiFetch<{ token: string; user: User }>("/api/v1/auth/login", undefined, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
 
-export const createProject = (name: string) =>
-  apiFetch<Project>("/api/v1/projects", {
+export const listProjects = (token: string) => apiFetch<Project[]>("/api/v1/projects", token);
+
+export const createProject = (name: string, token: string) =>
+  apiFetch<Project>("/api/v1/projects", token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
   });
 
-export const listIssues = (projectId: string, params: IssueListParams = {}) => {
+export const listIssues = (projectId: string, params: IssueListParams = {}, token?: string) => {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== "") search.set(key, String(value));
   }
   const qs = search.toString();
-  return apiFetch<PagedResult<IssueSummary>>(`/api/v1/projects/${projectId}/issues${qs ? `?${qs}` : ""}`);
+  return apiFetch<PagedResult<IssueSummary>>(`/api/v1/projects/${projectId}/issues${qs ? `?${qs}` : ""}`, token);
 };
 
-export const getIssue = (issueId: string) => apiFetch<IssueDetail>(`/api/v1/issues/${issueId}`);
+export const getIssue = (issueId: string, token?: string) =>
+  apiFetch<IssueDetail>(`/api/v1/issues/${issueId}`, token);
 
-export const updateIssueStatus = (issueId: string, status: string) =>
-  apiFetch<void>(`/api/v1/issues/${issueId}/status`, {
+export const updateIssueStatus = (issueId: string, status: string, token: string) =>
+  apiFetch<void>(`/api/v1/issues/${issueId}/status`, token, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),
   });
+
+export const listUsers = (token: string) => apiFetch<User[]>("/api/v1/users", token);
+
+export const createUser = (body: { email: string; name: string; password: string; role?: string }, token: string) =>
+  apiFetch<User>("/api/v1/users", token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+export const deleteUser = (userId: string, token: string) =>
+  apiFetch<void>(`/api/v1/users/${userId}`, token, { method: "DELETE" });

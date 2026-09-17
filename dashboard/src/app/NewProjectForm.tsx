@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createProject } from "@/lib/api";
+import { getClientToken } from "@/lib/session";
 
 export function NewProjectForm() {
   const router = useRouter();
@@ -16,8 +17,15 @@ export function NewProjectForm() {
 
     setPending(true);
     setError(null);
+    const token = getClientToken();
+    if (!token) {
+      setError("Session expired — please sign in again.");
+      setPending(false);
+      return;
+    }
+
     try {
-      await createProject(name.trim());
+      await createProject(name.trim(), token);
       setName("");
       router.refresh();
     } catch {
