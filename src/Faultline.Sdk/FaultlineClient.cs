@@ -1,5 +1,5 @@
 using System.Net.Http.Json;
-using Faultline.Domain.Contracts;
+using Faultline.Contracts;
 using Faultline.Sdk.Reliability;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

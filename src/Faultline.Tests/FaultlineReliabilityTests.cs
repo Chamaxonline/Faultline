@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using Faultline.Domain.Contracts;
+using Faultline.Contracts;
 using Faultline.Sdk;
 using Faultline.Sdk.Reliability;
 using Microsoft.Extensions.Logging.Abstractions;

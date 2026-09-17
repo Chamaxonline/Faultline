@@ -1,6 +1,6 @@
 using System.Text.Json;
 using Faultline.Domain;
-using Faultline.Domain.Contracts;
+using Faultline.Contracts;
 using Faultline.Infrastructure.Alerts;
 using Faultline.Infrastructure.Queue;
 using Microsoft.EntityFrameworkCore;

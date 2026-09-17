@@ -1,4 +1,4 @@
-namespace Faultline.Domain.Contracts;
+namespace Faultline.Contracts;
 
 /// <summary>Wire contract sent by SDKs to the ingestion API.</summary>
 public class ErrorEvent

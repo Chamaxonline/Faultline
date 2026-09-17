@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Faultline.Domain\Faultline.Domain.csproj" />
+    <ProjectReference Include="..\Faultline.Contracts\Faultline.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -21,6 +21,14 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Faultline.Sdk</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Bistec Global</Authors>
+    <Description>.NET client SDK for reporting errors to Faultline (in-house error tracking).</Description>
+    <RepositoryUrl>https://github.com/Chamaxonline/Faultline</RepositoryUrl>
   </PropertyGroup>
 
 </Project>

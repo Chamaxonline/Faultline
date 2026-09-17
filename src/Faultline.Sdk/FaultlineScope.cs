@@ -1,4 +1,4 @@
-using Faultline.Domain.Contracts;
+using Faultline.Contracts;
 
 namespace Faultline.Sdk;
 

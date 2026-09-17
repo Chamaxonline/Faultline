@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
-using Faultline.Domain.Contracts;
+using Faultline.Contracts;
 
 namespace Faultline.Domain;
 

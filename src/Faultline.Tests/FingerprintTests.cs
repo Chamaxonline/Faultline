@@ -1,5 +1,5 @@
 using Faultline.Domain;
-using Faultline.Domain.Contracts;
+using Faultline.Contracts;
 using Xunit;
 
 namespace Faultline.Tests;

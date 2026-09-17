@@ -2,7 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Faultline.Api.Auth;
 using Faultline.Domain;
-using Faultline.Domain.Contracts;
+using Faultline.Contracts;
 using Faultline.Infrastructure;
 using Faultline.Infrastructure.Alerts;
 using Faultline.Infrastructure.Processing;

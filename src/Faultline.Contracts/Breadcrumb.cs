@@ -1,4 +1,4 @@
-namespace Faultline.Domain.Contracts;
+namespace Faultline.Contracts;
 
 public class Breadcrumb
 {

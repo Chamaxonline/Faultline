@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Faultline.Api/Faultline.Api.csproj" />
+    <Project Path="src/Faultline.Contracts/Faultline.Contracts.csproj" />
     <Project Path="src/Faultline.Domain/Faultline.Domain.csproj" />
     <Project Path="src/Faultline.Infrastructure/Faultline.Infrastructure.csproj" />
     <Project Path="src/Faultline.Sdk/Faultline.Sdk.csproj" />

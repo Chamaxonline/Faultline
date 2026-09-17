@@ -62,6 +62,19 @@ See `docs/BACKLOG.md` for the hardening path if this needs tightening later.
 
 ## Using the SDK in another app
 
+`Faultline.Sdk` (and its `Faultline.Contracts` dependency) publish to GitHub
+Packages on every push to master that touches either project
+(`.github/workflows/publish-sdk.yml`). Since this repo is private, consuming
+them from another repo needs a GitHub PAT with `read:packages` scope:
+
+```bash
+dotnet nuget add source --username <your-github-username> --password <PAT> \
+  --store-password-in-clear-text --name faultline \
+  "https://nuget.pkg.github.com/Chamaxonline/index.json"
+
+dotnet add package Faultline.Sdk
+```
+
 ```csharp
 services.AddFaultline(opts =>
 {

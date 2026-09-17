@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Faultline.Contracts</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Bistec Global</Authors>
+    <Description>Wire contracts (ErrorEvent, Breadcrumb) shared between Faultline SDKs and the ingestion API.</Description>
+    <RepositoryUrl>https://github.com/Chamaxonline/Faultline</RepositoryUrl>
+  </PropertyGroup>
+
+</Project>
