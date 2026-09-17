@@ -103,6 +103,10 @@ export const listIssues = (projectId: string, params: IssueListParams = {}, toke
 export const getIssue = (issueId: string, token?: string) =>
   apiFetch<IssueDetail>(`/api/v1/issues/${issueId}`, token);
 
+/** page 1 = latest event, higher page numbers go further back in time */
+export const getIssueEvent = (issueId: string, page: number, token?: string) =>
+  apiFetch<PagedResult<EventItem>>(`/api/v1/issues/${issueId}/events?page=${page}`, token);
+
 export const updateIssueStatus = (issueId: string, status: string, token: string) =>
   apiFetch<void>(`/api/v1/issues/${issueId}/status`, token, {
     method: "PATCH",

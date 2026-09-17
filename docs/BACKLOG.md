@@ -155,12 +155,14 @@ against data that already exists, not new capture work.
       category, level, message)
 - [x] Context tab: `UserContext` + `Extra`
 
-### Story 3: Per-event navigation (P1)
-- [ ] Replace the flat "last 20 events" list with First/Previous/Next/Latest
-      navigation through an issue's individual events (matches the screenshot's
-      event pager)
-- [ ] Api: paginate `GET /api/v1/issues/{id}/events` instead of a fixed `Take(20)`
-      inline on the issue payload
+### Story 3: Per-event navigation (P1) — done
+- [x] Replace the flat "last 20 events" list with First/Older/Newer/Latest
+      navigation through an issue's individual events, one at a time (matches
+      the screenshot's event pager), driven by a `?event=N` URL param
+- [x] Api: `GET /api/v1/issues/{id}/events?page=N` returns one event per page
+      (page 1 = latest, higher pages go further back), reusing the existing
+      `PagedResult<T>` shape — the old embedded `RecentEvents` on `GetIssue`
+      stays as-is for backward compat, dashboard just doesn't use it anymore
 
 ### Story 4: Events-over-time + tag distribution (P1 — needs light aggregation)
 - [ ] Small sparkline/histogram of event counts over time on the issue page

@@ -231,6 +231,35 @@ app.MapGet("/api/v1/issues/{issueId:guid}", async (Guid issueId, FaultlineDbCont
     .WithOpenApi()
     .RequireAuthorization();
 
+// Paginated per-event access for the issue detail page's First/Previous/Next/Latest
+// pager — newest event is page 1, page number increases going further back in time.
+app.MapGet("/api/v1/issues/{issueId:guid}/events", async (
+        Guid issueId,
+        int? page,
+        FaultlineDbContext db,
+        CancellationToken ct) =>
+    {
+        var pageNumber = page is null or <= 0 ? 1 : page.Value;
+
+        var query = db.Events.AsNoTracking().Where(e => e.IssueId == issueId).OrderByDescending(e => e.Timestamp);
+
+        var total = await query.CountAsync(ct);
+        if (total == 0) return Results.NotFound();
+
+        var evt = await query
+            .Skip(pageNumber - 1)
+            .Take(1)
+            .Select(e => new EventDto(e.Id, e.Timestamp, e.Release, e.Environment, e.RawPayload))
+            .FirstOrDefaultAsync(ct);
+
+        return evt is null
+            ? Results.NotFound()
+            : Results.Ok(new PagedResult<EventDto>([evt], total, pageNumber, 1));
+    })
+    .WithName("GetIssueEvents")
+    .WithOpenApi()
+    .RequireAuthorization();
+
 app.MapPatch("/api/v1/issues/{issueId:guid}/status", async (
         Guid issueId,
         UpdateIssueStatusRequest body,
