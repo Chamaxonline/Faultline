@@ -260,6 +260,75 @@ app.MapGet("/api/v1/issues/{issueId:guid}/events", async (
     .WithOpenApi()
     .RequireAuthorization();
 
+// Daily event counts for the last 14 days, zero-filled so the chart has a fixed width.
+app.MapGet("/api/v1/issues/{issueId:guid}/timeline", async (Guid issueId, FaultlineDbContext db, CancellationToken ct) =>
+    {
+        // DateTimeOffset.UtcNow.Date returns a plain DateTime (Kind=Unspecified) — comparing
+        // that directly against a DateTimeOffset column implicitly reinterprets it in the
+        // *local* machine timezone, not UTC (Npgsql then rejects the non-zero offset).
+        // Stick to DateOnly for calendar-day math and build the UTC DateTimeOffset explicitly.
+        const int days = 14;
+        var startDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-(days - 1));
+        var sinceUtc = new DateTimeOffset(startDate.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+
+        var counts = await db.Events.AsNoTracking()
+            .Where(e => e.IssueId == issueId && e.Timestamp >= sinceUtc)
+            .GroupBy(e => e.Timestamp.Date)
+            .Select(g => new { Date = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+
+        var timeline = Enumerable.Range(0, days)
+            .Select(offset => startDate.AddDays(offset))
+            .Select(date => new TimelinePointDto(
+                date.ToDateTime(TimeOnly.MinValue),
+                counts.FirstOrDefault(c => DateOnly.FromDateTime(c.Date) == date)?.Count ?? 0))
+            .ToList();
+
+        return Results.Ok(timeline);
+    })
+    .WithName("GetIssueTimeline")
+    .WithOpenApi()
+    .RequireAuthorization();
+
+// Tag value distribution over the issue's most recent events — good enough at
+// Faultline's current scale; revisit with a proper aggregate table if this ever
+// shows up as a slow query (Tags live inside RawPayload, not a queryable column).
+app.MapGet("/api/v1/issues/{issueId:guid}/tags", async (Guid issueId, FaultlineDbContext db, CancellationToken ct) =>
+    {
+        const int sampleSize = 50;
+
+        var payloads = await db.Events.AsNoTracking()
+            .Where(e => e.IssueId == issueId)
+            .OrderByDescending(e => e.Timestamp)
+            .Take(sampleSize)
+            .Select(e => e.RawPayload)
+            .ToListAsync(ct);
+
+        var distribution = new Dictionary<string, Dictionary<string, int>>();
+        var sampled = 0;
+
+        foreach (var raw in payloads)
+        {
+            ErrorEvent? evt;
+            try { evt = JsonSerializer.Deserialize<ErrorEvent>(raw); }
+            catch { continue; }
+            if (evt is null) continue;
+
+            sampled++;
+            foreach (var (key, value) in evt.Tags)
+            {
+                if (!distribution.TryGetValue(key, out var values))
+                    distribution[key] = values = [];
+                values[value] = values.GetValueOrDefault(value) + 1;
+            }
+        }
+
+        return Results.Ok(new TagDistributionDto(sampled, distribution));
+    })
+    .WithName("GetIssueTagDistribution")
+    .WithOpenApi()
+    .RequireAuthorization();
+
 app.MapPatch("/api/v1/issues/{issueId:guid}/status", async (
         Guid issueId,
         UpdateIssueStatusRequest body,
@@ -351,3 +420,5 @@ record EventDto(Guid Id, DateTimeOffset Timestamp, string? Release, string? Envi
 record UpdateIssueStatusRequest(string Status);
 record CreateProjectRequest(string Name);
 record PagedResult<T>(List<T> Items, int Total, int Page, int PageSize);
+record TimelinePointDto(DateTime Date, int Count);
+record TagDistributionDto(int SampledEvents, Dictionary<string, Dictionary<string, int>> Tags);

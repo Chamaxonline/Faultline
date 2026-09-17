@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { getIssue, getIssueEvent } from "@/lib/api";
+import { getIssue, getIssueEvent, getIssueTimeline, getIssueTagDistribution } from "@/lib/api";
 import { SESSION_COOKIE_NAME } from "@/lib/session";
 import { parseEventPayload } from "@/lib/eventPayload";
 import { IssueActions } from "./IssueActions";
 import { EventTabs } from "./EventTabs";
+import { Timeline } from "./Timeline";
+import { TagDistributionView } from "./TagDistributionView";
 
 export default async function IssueDetail({
   params,
@@ -18,8 +20,12 @@ export default async function IssueDetail({
   const eventPage = Math.max(1, Number(sp.event ?? "1") || 1);
 
   const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
-  const issue = await getIssue(issueId, token);
-  const eventsResult = await getIssueEvent(issueId, eventPage, token).catch(() => null);
+  const [issue, eventsResult, timeline, tagDistribution] = await Promise.all([
+    getIssue(issueId, token),
+    getIssueEvent(issueId, eventPage, token).catch(() => null),
+    getIssueTimeline(issueId, token).catch(() => null),
+    getIssueTagDistribution(issueId, token).catch(() => null),
+  ]);
   const event = eventsResult?.items[0] ?? null;
   const total = eventsResult?.total ?? 0;
 
@@ -45,6 +51,19 @@ export default async function IssueDetail({
         </div>
         <IssueActions issueId={issue.id} currentStatus={issue.status} />
       </div>
+
+      {timeline && (
+        <div className="mt-6">
+          <Timeline points={timeline} />
+        </div>
+      )}
+
+      {tagDistribution && (
+        <div className="mt-6">
+          <h2 className="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">Tag distribution</h2>
+          <TagDistributionView distribution={tagDistribution} />
+        </div>
+      )}
 
       <div className="mt-8 flex items-center justify-between">
         <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Event</h2>

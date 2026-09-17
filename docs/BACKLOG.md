@@ -164,13 +164,17 @@ against data that already exists, not new capture work.
       `PagedResult<T>` shape — the old embedded `RecentEvents` on `GetIssue`
       stays as-is for backward compat, dashboard just doesn't use it anymore
 
-### Story 4: Events-over-time + tag distribution (P1 — needs light aggregation)
-- [ ] Small sparkline/histogram of event counts over time on the issue page
-      (group by hour/day; a simple `GROUP BY date_trunc` query, not a new metrics
-      system)
-- [ ] Tag value distribution (e.g. "environment: 100% Development") computed
-      over the issue's recent events — no schema change needed, just aggregate
-      the same `Tags` dict already stored per event
+### Story 4: Events-over-time + tag distribution (P1 — needs light aggregation) — done
+- [x] 14-day zero-filled bar chart of event counts on the issue page
+      (`GET /api/v1/issues/{id}/timeline`, `GROUP BY` the event date — hit and
+      fixed a real bug here: `DateTimeOffset.UtcNow.Date` returns a plain
+      `DateTime`, and comparing that against a `DateTimeOffset` column implicitly
+      reinterprets it in the *local machine's* timezone, not UTC — Npgsql then
+      rejects the non-zero offset. Fixed with explicit `DateOnly`/UTC math.)
+- [x] Tag value distribution (e.g. "http.method: 100% GET") computed over the
+      issue's last 50 events (`GET /api/v1/issues/{id}/tags`) — no schema change,
+      Tags live in `RawPayload` so this parses JSON in memory; documented as a
+      "revisit if it's ever slow at scale" tradeoff, not a proper aggregate table
 
 ### Story 5: Assignee (P1 — builds on the Users epic already done)
 - [ ] `Issue.AssignedToUserId` (nullable FK to `User`)

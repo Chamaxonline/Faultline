@@ -107,6 +107,16 @@ export const getIssue = (issueId: string, token?: string) =>
 export const getIssueEvent = (issueId: string, page: number, token?: string) =>
   apiFetch<PagedResult<EventItem>>(`/api/v1/issues/${issueId}/events?page=${page}`, token);
 
+export type TimelinePoint = { date: string; count: number };
+
+export const getIssueTimeline = (issueId: string, token?: string) =>
+  apiFetch<TimelinePoint[]>(`/api/v1/issues/${issueId}/timeline`, token);
+
+export type TagDistribution = { sampledEvents: number; tags: Record<string, Record<string, number>> };
+
+export const getIssueTagDistribution = (issueId: string, token?: string) =>
+  apiFetch<TagDistribution>(`/api/v1/issues/${issueId}/tags`, token);
+
 export const updateIssueStatus = (issueId: string, status: string, token: string) =>
   apiFetch<void>(`/api/v1/issues/${issueId}/status`, token, {
     method: "PATCH",
