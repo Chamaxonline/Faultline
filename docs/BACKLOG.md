@@ -144,15 +144,16 @@ against data that already exists, not new capture work.
       (rest of the raw payload — tags/breadcrumbs/context — kept as a collapsible
       fallback `<details>` until Story 2 splits it into proper tabs)
 
-### Story 2: Tabbed issue detail layout (P0 — depends on Story 1)
-- [ ] Replace the single raw-JSON block with tabs: **Stack Trace** / **Tags** /
-      **Breadcrumbs** / **Context** (mirrors the screenshot's tab row minus
-      Replay/Trace, which are out of scope — see below)
-- [ ] Tags tab: render the event's `Tags` dict as a simple list (aggregation
+### Story 2: Tabbed issue detail layout (P0 — depends on Story 1) — done
+- [x] Replace the raw-JSON fallback with tabs: **Stack Trace** / **Tags** /
+      **Breadcrumbs** / **Context** / **Raw** (mirrors the screenshot's tab row
+      minus Replay/Trace, which are out of scope — see below; kept a Raw tab as
+      a debugging safety net)
+- [x] Tags tab: render the event's `Tags` dict as a simple list (aggregation
       across events is Story 4, not this one)
-- [ ] Breadcrumbs tab: render the `Breadcrumbs` array as a timeline (timestamp,
+- [x] Breadcrumbs tab: render the `Breadcrumbs` array as a timeline (timestamp,
       category, level, message)
-- [ ] Context tab: `UserContext` + `Extra`
+- [x] Context tab: `UserContext` + `Extra`
 
 ### Story 3: Per-event navigation (P1)
 - [ ] Replace the flat "last 20 events" list with First/Previous/Next/Latest

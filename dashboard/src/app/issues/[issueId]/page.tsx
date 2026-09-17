@@ -4,7 +4,7 @@ import { getIssue } from "@/lib/api";
 import { SESSION_COOKIE_NAME } from "@/lib/session";
 import { parseEventPayload } from "@/lib/eventPayload";
 import { IssueActions } from "./IssueActions";
-import { StackTrace } from "./StackTrace";
+import { EventTabs } from "./EventTabs";
 
 export default async function IssueDetail({
   params,
@@ -44,22 +44,7 @@ export default async function IssueDetail({
                 {event.release ? `· ${event.release}` : ""}
               </p>
 
-              {payload && payload.Frames.length > 0 ? (
-                <div className="mt-3">
-                  <StackTrace frames={payload.Frames} />
-                </div>
-              ) : (
-                <p className="mt-2 text-xs text-zinc-500">No stack trace captured for this event.</p>
-              )}
-
-              <details className="mt-3">
-                <summary className="cursor-pointer text-xs text-zinc-500 hover:underline">
-                  Raw payload (tags, breadcrumbs, context)
-                </summary>
-                <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs text-zinc-700 dark:text-zinc-300">
-                  {JSON.stringify(payload ?? JSON.parse(event.rawPayload), null, 2)}
-                </pre>
-              </details>
+              <EventTabs payload={payload} rawPayload={event.rawPayload} />
             </li>
           );
         })}
